@@ -1,0 +1,18 @@
+# dependencies
+**/node_modules/
+
+# env files
+**/.env
+
+# build outputs
+**/dist/
+**/build/
+
+# prisma
+**/dev.db
+**/*.db
+**/.prisma/
+
+server/prisma/generated
+*.sql
+
