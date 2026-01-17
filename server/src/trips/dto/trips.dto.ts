@@ -1,5 +1,6 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { IsDateString, IsNotEmpty, IsString } from 'class-validator';
+import { ModeType } from '@prisma/client';
+import { IsDateString, IsEnum, IsNotEmpty, IsString } from 'class-validator';
 
 export class CreateTripDto {
     @IsNotEmpty()
@@ -9,6 +10,10 @@ export class CreateTripDto {
     @IsNotEmpty()
     @IsDateString()
     tripDateTime: string;
+
+    @IsNotEmpty()
+    @IsEnum(ModeType)
+    mode: ModeType;
 }
 
 export class UpdateTripDto extends PartialType(CreateTripDto) {}
