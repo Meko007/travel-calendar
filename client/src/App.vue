@@ -1,21 +1,3 @@
-<script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { fetchHello } from './lib/api'
-
-const apiMessage = ref('Loading...')
-const apiError = ref('')
-
-onMounted(async () => {
-  try {
-    apiMessage.value = await fetchHello()
-  } catch (error) {
-    apiError.value =
-      error instanceof Error ? error.message : 'Failed to reach the API'
-    apiMessage.value = ''
-  }
-})
-</script>
-
 <template>
   <router-view />
 </template>

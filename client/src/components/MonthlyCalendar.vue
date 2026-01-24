@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
-import { createTrip } from "../lib/api";
+import { computed, onMounted, reactive, ref, watch } from "vue";
+import { createTrip, fetchAdminTrips, fetchTrips, type AdminTrip, type ModeType, type TripStatus } from "../lib/api";
+import { useAuthStore } from "../stores/auth";
 
 type Props = {
   year: number; // e.g. 2026
@@ -17,6 +18,24 @@ const emit = defineEmits<{
   (event: "bookingCreated"): void;
 }>();
 
+const auth = useAuthStore();
+
+type CalendarTrip = {
+  id: string;
+  destination: string;
+  tripDateTime: string;
+  returnTripDateTime: string;
+  mode: ModeType;
+  returnMode?: ModeType | null;
+  status: TripStatus;
+  rejectionReason?: string | null;
+  user?: AdminTrip["user"];
+};
+
+const trips = ref<CalendarTrip[]>([]);
+const tripsLoading = ref(false);
+const tripsError = ref("");
+
 const monthName = computed(() =>
   new Date(props.year, props.month - 1, 1)
     .toLocaleString(undefined, { month: "long" })
@@ -28,8 +47,8 @@ const daysOfWeek = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const dayDecorations: Record<number, DayDecor> = {
   1: { tone: "lavender" },
   9: { tone: "sand" },
-  11: { tone: "sky", note: "SBU: care\nAssociate name: Daniel" },
-  13: { tone: "rose", note: "R" },
+  11: { tone: "sky" },
+  13: { tone: "rose" },
   17: { tone: "lavender" },
   21: { tone: "sky" },
   30: { tone: "rose" },
@@ -37,6 +56,55 @@ const dayDecorations: Record<number, DayDecor> = {
 
 const today = new Date();
 today.setHours(0, 0, 0, 0);
+
+function toDateKeyFromDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function toDateKeyFromTrip(raw: string) {
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) {
+    return raw.split("T")[0];
+  }
+  return toDateKeyFromDate(date);
+}
+
+function summarizeTrips(items: CalendarTrip[]) {
+  if (items.length === 0) {
+    return "";
+  }
+  const destinations = Array.from(new Set(items.map((trip) => trip.destination)));
+  if (destinations.length === 1) {
+    return items.length === 1 ? destinations[0] : `${destinations[0]} +${items.length - 1}`;
+  }
+  return `${destinations[0]} +${destinations.length - 1}`;
+}
+
+const monthTrips = computed(() =>
+  trips.value.filter((trip) => {
+    const date = new Date(trip.tripDateTime);
+    if (Number.isNaN(date.getTime())) {
+      return false;
+    }
+    return date.getFullYear() === props.year && date.getMonth() + 1 === props.month;
+  })
+);
+
+const tripsByDate = computed(() => {
+  const map: Record<string, CalendarTrip[]> = {};
+  for (const trip of monthTrips.value) {
+    const key = toDateKeyFromTrip(trip.tripDateTime);
+    const k = String(key);
+    if (!map[k]) {
+      map[k] = [];
+    }
+    map[k].push(trip);
+  }
+  return map;
+});
 
 const isFormOpen = ref(false);
 const selectedDate = ref<Date | null>(null);
@@ -46,7 +114,6 @@ const formState = reactive({
   timeMinute: "",
   timeMeridiem: "",
   destination: "",
-  addReturnTrip: true,
   returnDate: "",
   returnHour: "",
   returnMinute: "",
@@ -55,6 +122,7 @@ const formState = reactive({
 });
 const submitError = ref("");
 const isSubmitting = ref(false);
+const successMessage = ref("");
 
 function daysInMonth(year: number, month1to12: number) {
   return new Date(year, month1to12, 0).getDate();
@@ -94,6 +162,8 @@ const cells = computed(() => {
     decor?: DayDecor;
     date: Date;
     isBookable: boolean;
+    tripSummary?: string;
+    tripCount?: number;
   }[] = [];
   for (let i = 0; i < totalCells; i++) {
     const dayNum = i - start + 1;
@@ -117,7 +187,10 @@ const cells = computed(() => {
     const date = new Date(cellYear, cellMonth - 1, day);
     const isBookable = inMonth && date >= today;
     const decor = inMonth ? dayDecorations[day] : undefined;
-    arr.push({ day, inMonth, decor, date, isBookable });
+    const tripKey = toDateKeyFromDate(date);
+    const dayTrips = tripsByDate.value[tripKey] ?? [];
+    const tripSummary = summarizeTrips(dayTrips);
+    arr.push({ day, inMonth, decor, date, isBookable, tripSummary, tripCount: dayTrips.length });
   }
   return arr;
 });
@@ -138,6 +211,17 @@ const selectedDateLabel = computed(() => {
   });
 });
 
+const selectedDateKey = computed(() => (selectedDate.value ? formatIsoDate(selectedDate.value) : ""));
+
+const selectedTrips = computed(() => {
+  if (!selectedDate.value) {
+    return [];
+  }
+  return tripsByDate.value[selectedDateKey.value] ?? [];
+});
+
+const canBookSelected = computed(() => !!selectedDate.value && selectedDate.value >= today);
+
 function openForm(date: Date) {
   selectedDate.value = date;
   formState.modeOfTravel = "";
@@ -145,7 +229,6 @@ function openForm(date: Date) {
   formState.timeMinute = "";
   formState.timeMeridiem = "";
   formState.destination = "";
-  formState.addReturnTrip = true;
   formState.returnDate = "";
   formState.returnHour = "";
   formState.returnMinute = "";
@@ -159,15 +242,44 @@ function closeForm() {
   isFormOpen.value = false;
 }
 
-function handleDayClick(cell: (typeof cells)["value"][number]) {
-  if (!cell.isBookable) {
+function openFormForSelected() {
+  if (!selectedDate.value) {
     return;
   }
-  openForm(cell.date);
+  openForm(selectedDate.value);
+}
+
+function clearSelectedDate() {
+  selectedDate.value = null;
+}
+
+function handleDayClick(cell: (typeof cells)["value"][number]) {
+  if (!cell.inMonth) {
+    return;
+  }
+  if (selectedDate.value && formatIsoDate(selectedDate.value) === formatIsoDate(cell.date)) {
+    selectedDate.value = null;
+    return;
+  }
+  selectedDate.value = cell.date;
 }
 
 function formatIsoDate(date: Date) {
-  return date.toISOString().split("T")[0];
+  return toDateKeyFromDate(date);
+}
+
+function formatDateTime(dateStr: string) {
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) {
+    return dateStr;
+  }
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 const hourOptions = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"));
@@ -193,6 +305,58 @@ function normalizeTimeTo24Hour(hours: string, minutes: string, meridiem: string)
   return `${String(normalizedHours).padStart(2, "0")}:${String(parsedMinutes).padStart(2, "0")}`;
 }
 
+function buildLocalDateTime(dateStr: string, time24: string) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const [hours, minutes] = time24.split(":").map(Number);
+  if (
+    !year ||
+    !month ||
+    !day ||
+    Number.isNaN(hours) ||
+    Number.isNaN(minutes)
+  ) {
+    return null;
+  }
+  return new Date(year, month - 1, day, hours, minutes, 0, 0);
+}
+
+async function loadTrips() {
+  tripsLoading.value = true;
+  tripsError.value = "";
+  try {
+    if (auth.isAdmin) {
+      const data = await fetchAdminTrips({ status: "APPROVED", page: 1, limit: 500 });
+      trips.value = data;
+    } else {
+      const data = await fetchTrips({ status: "APPROVED", page: 1, limit: 500 });
+      trips.value = data;
+    }
+  } catch (error) {
+    tripsError.value =
+      error instanceof Error ? error.message : "Unable to load approved trips.";
+  } finally {
+    tripsLoading.value = false;
+  }
+}
+
+onMounted(loadTrips);
+watch(
+  () => [props.year, props.month, auth.isAdmin],
+  () => {
+    loadTrips();
+  }
+);
+
+watch(
+  formState,
+  () => {
+    if (submitError.value) {
+      submitError.value = "";
+    }
+  },
+  { deep: true }
+);
+
 async function submitBooking() {
   if (!selectedDate.value) {
     return;
@@ -215,46 +379,66 @@ async function submitBooking() {
       return;
     }
 
-    if (formState.addReturnTrip) {
-      if (!formState.returnDate || !formState.returnHour || !formState.returnMinute || !formState.returnMeridiem) {
-        submitError.value = "Please provide a return date and time.";
-        return;
-      }
-      if (formState.returnDate < isoDate) {
-        submitError.value = "Return date must be on or after the departure date.";
-        return;
-      }
+    if (!formState.returnDate || !formState.returnHour || !formState.returnMinute || !formState.returnMeridiem) {
+      submitError.value = "Please provide a return date and time.";
+      return;
+    }
+    if (formState.returnDate < isoDate) {
+      submitError.value = "Return date must be on or after the departure date.";
+      return;
     }
 
-    const returnTimeNormalized = formState.addReturnTrip
-      ? normalizeTimeTo24Hour(
-          formState.returnHour,
-          formState.returnMinute,
-          formState.returnMeridiem
-        )
-      : "";
-    if (formState.addReturnTrip && !returnTimeNormalized) {
+    const returnTimeNormalized = normalizeTimeTo24Hour(
+      formState.returnHour,
+      formState.returnMinute,
+      formState.returnMeridiem
+    );
+    if (!returnTimeNormalized) {
       submitError.value = "Please select a return time.";
       return;
     }
 
-    await createTrip({
-      date: isoDate,
-      modeOfTravel: formState.modeOfTravel,
-      timeOfDeparture: outboundTime,
-      destination: formState.destination,
-    });
-
-    if (formState.addReturnTrip) {
-      await createTrip({
-        date: formState.returnDate,
-        modeOfTravel: formState.returnModeOfTravel || formState.modeOfTravel,
-        timeOfDeparture: returnTimeNormalized,
-        destination: formState.destination,
-      });
+    const now = new Date();
+    const outboundDateTime = buildLocalDateTime(isoDate, outboundTime);
+    if (!outboundDateTime) {
+      submitError.value = "Invalid departure date/time.";
+      return;
+    }
+    if (outboundDateTime < now) {
+      submitError.value = "Departure time has already passed.";
+      return;
     }
 
+    const returnDateTime = buildLocalDateTime(formState.returnDate, returnTimeNormalized);
+    if (!returnDateTime) {
+      submitError.value = "Invalid return date/time.";
+      return;
+    }
+    if (returnDateTime < now) {
+      submitError.value = "Return time has already passed.";
+      return;
+    }
+    if (returnDateTime < outboundDateTime) {
+      submitError.value = "Return time must be on or after the departure time.";
+      return;
+    }
+
+    await createTrip({
+      destination: formState.destination,
+      tripDateTime: `${isoDate}T${outboundTime}:00`,
+      returnTripDateTime: `${formState.returnDate}T${returnTimeNormalized}:00`,
+      mode: formState.modeOfTravel as "LAND" | "AIR" | "SEA",
+      returnMode: (formState.returnModeOfTravel || formState.modeOfTravel) as
+        | "LAND"
+        | "AIR"
+        | "SEA",
+    });
+
     isFormOpen.value = false;
+    successMessage.value = "Trip sent for approval.";
+    setTimeout(() => {
+      successMessage.value = "";
+    }, 2400);
     emit("bookingCreated");
   } catch (error) {
     submitError.value =
@@ -286,7 +470,7 @@ async function submitBooking() {
         <div class="year">{{ year }}</div>
       </div>
 
-      <div class="calendar-title">Monthly travels calendar</div>
+      <div class="calendar-title">Monthly Travels Calendar</div>
     </header>
 
     <div class="calendar-body">
@@ -304,13 +488,18 @@ async function submitBooking() {
             :class="[
               c.inMonth ? 'in-month' : 'out-month',
               c.decor?.tone ? `tone-${c.decor.tone}` : '',
-              c.isBookable ? 'is-bookable' : 'is-disabled',
+              c.isBookable ? 'is-bookable' : 'is-readonly',
+              selectedDateKey && formatIsoDate(c.date) === selectedDateKey ? 'is-selected' : '',
             ]"
-            :disabled="!c.isBookable"
+            :disabled="!c.inMonth"
             @click="handleDayClick(c)"
           >
             <div class="day-number">{{ formatDay(c.day) }}</div>
-            <div v-if="c.decor?.note" class="day-note">
+            <div v-if="c.tripCount" class="day-summary">
+              <span class="day-summary-text">{{ c.tripSummary }}</span>
+              <span class="day-summary-count">{{ c.tripCount }}</span>
+            </div>
+            <div v-else-if="c.decor?.note" class="day-note">
               <span
                 v-for="(line, lineIdx) in c.decor.note.split('\n')"
                 :key="lineIdx"
@@ -323,10 +512,42 @@ async function submitBooking() {
         </div>
       </div>
 
-      <aside class="meta-card">
-        <div class="meta-line">DESTINATION : <span>LAGOS, NIGERIA</span></div>
-        <div class="meta-line">MODE OF TRAVEL : <span>LAND</span></div>
-        <div class="meta-line">TIME OF DEPARTURE : <span>10:20:00</span></div>
+      <aside v-if="selectedDate" class="meta-card">
+        <div class="meta-header">
+          <div>
+            <div class="meta-title">Trips for</div>
+            <div class="meta-date">{{ selectedDateLabel }}</div>
+          </div>
+          <button type="button" class="meta-close" @click="clearSelectedDate">
+            Close
+          </button>
+        </div>
+
+        <p v-if="tripsLoading" class="meta-loading">Loading approved trips...</p>
+        <p v-else-if="selectedTrips.length === 0" class="meta-empty">
+          No approved trips for this date.
+        </p>
+
+        <div v-else class="meta-list">
+          <article v-for="trip in selectedTrips" :key="trip.id" class="meta-trip">
+            <div class="meta-line">DESTINATION : <span>{{ trip.destination }}</span></div>
+            <div class="meta-line">MODE : <span>{{ trip.mode }}</span></div>
+            <div class="meta-line">OUTBOUND : <span>{{ formatDateTime(trip.tripDateTime) }}</span></div>
+            <div class="meta-line">RETURN : <span>{{ formatDateTime(trip.returnTripDateTime) }}</span></div>
+            <div v-if="auth.isAdmin && trip.user" class="meta-line">
+              TRAVELER : <span>{{ trip.user.firstName }} {{ trip.user.lastName }}</span>
+            </div>
+          </article>
+        </div>
+
+        <p v-if="tripsError" class="meta-error">{{ tripsError }}</p>
+
+        <div v-if="canBookSelected" class="meta-actions">
+          <button type="button" class="primary-button" @click="openFormForSelected">
+            Book travel
+          </button>
+        </div>
+
         <div class="meta-cutout" aria-hidden="true"></div>
       </aside>
     </div>
@@ -345,9 +566,9 @@ async function submitBooking() {
           <span>Mode of travel</span>
           <select v-model="formState.modeOfTravel" required>
             <option value="" disabled>Select mode</option>
-            <option value="Land">Land</option>
-            <option value="Air">Air</option>
-            <option value="Sea">Sea</option>
+            <option value="LAND">Land</option>
+            <option value="AIR">Air</option>
+            <option value="SEA">Sea</option>
           </select>
         </label>
 
@@ -381,19 +602,14 @@ async function submitBooking() {
           <input v-model="formState.destination" type="text" placeholder="City, country" required />
         </label>
 
-        <label class="booking-check">
-          <input type="checkbox" v-model="formState.addReturnTrip" />
-          <span>Book return trip</span>
-        </label>
-
-        <div v-if="formState.addReturnTrip" class="return-fields">
+        <div class="return-fields">
           <label class="booking-field">
             <span>Return mode of travel</span>
             <select v-model="formState.returnModeOfTravel">
               <option value="">Same as outbound</option>
-              <option value="Land">Land</option>
-              <option value="Air">Air</option>
-              <option value="Sea">Sea</option>
+              <option value="LAND">Land</option>
+              <option value="AIR">Air</option>
+              <option value="SEA">Sea</option>
             </select>
           </label>
 
@@ -444,6 +660,10 @@ async function submitBooking() {
           </button>
         </div>
       </form>
+    </div>
+
+    <div v-if="successMessage" class="toast">
+      {{ successMessage }}
     </div>
   </section>
 </template>
@@ -590,8 +810,38 @@ async function submitBooking() {
   box-shadow: 0 10px 20px rgba(64, 52, 40, 0.12);
 }
 
-.is-disabled {
-  cursor: not-allowed;
+.is-readonly {
+  cursor: pointer;
+}
+
+.is-selected {
+  outline: 2px solid #3c3a37;
+  outline-offset: 2px;
+}
+
+.day-summary {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 10px;
+  line-height: 1.2;
+  color: #6c625a;
+}
+
+.day-summary-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-summary-count {
+  border-radius: 999px;
+  padding: 2px 6px;
+  font-size: 10px;
+  background: #efe7df;
+  color: #3c3a37;
 }
 
 .tone-lavender {
@@ -622,12 +872,76 @@ async function submitBooking() {
   letter-spacing: 0.04em;
 }
 
+.meta-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.meta-title {
+  font-family: var(--font-title);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  color: #7a6d63;
+}
+
+.meta-date {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.meta-close {
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  color: #7a6d63;
+}
+
 .meta-line {
   margin-bottom: 12px;
 }
 
 .meta-line span {
   font-weight: 600;
+}
+
+.meta-list {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.meta-trip {
+  border: 1px solid #efe7df;
+  border-radius: 14px;
+  padding: 12px;
+  background: #fffdfb;
+}
+
+.meta-loading,
+.meta-empty,
+.meta-error {
+  font-size: 12px;
+  color: #6c625a;
+  margin: 0 0 10px;
+}
+
+.meta-error {
+  color: #b24c4c;
+}
+
+.meta-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .meta-cutout {
@@ -783,6 +1097,20 @@ async function submitBooking() {
   color: #b24c4c;
   font-size: 12px;
   margin: 0;
+}
+
+.toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  background: #3c3a37;
+  color: #f7f2ee;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  box-shadow: 0 12px 24px rgba(50, 40, 35, 0.2);
+  z-index: 20;
 }
 
 @media (max-width: 900px) {

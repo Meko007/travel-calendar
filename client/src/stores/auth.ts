@@ -7,6 +7,7 @@ type User = {
   firstName?: string;
   lastName?: string;
   name?: string;
+  role?: "USER" | "ADMIN";
 };
 
 function getStoredUser(): User | null {
@@ -31,6 +32,7 @@ export const useAuthStore = defineStore("auth", {
 
   getters: {
     isAuthed: (s) => !!s.accessToken,
+    isAdmin: (s) => s.user?.role === "ADMIN",
   },
 
   actions: {
