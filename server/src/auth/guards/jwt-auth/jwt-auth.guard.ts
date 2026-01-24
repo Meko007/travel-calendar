@@ -4,7 +4,6 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
 import * as jwt from 'jsonwebtoken';
 // import { IS_PUBLIC_KEY } from 'src/auth/decorators/public.decorator';
  
@@ -32,7 +31,7 @@ export class JwtAuthGuard implements CanActivate {
       req.user = {
         id: decoded.sub,
         email: decoded.email,
-        // role: decoded.role,
+        role: decoded.role,
       }; // attach user to request
       return true;
     } catch (error) {

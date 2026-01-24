@@ -5,6 +5,8 @@ import { AuthModule } from './auth/auth.module';
 import { TripsModule } from './trips/trips.module';
 import { DbModule } from './common/db/db.module';
 import { ConfigModule } from '@nestjs/config';
+import { AdminModule } from './admin/admin.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -13,7 +15,7 @@ import { ConfigModule } from '@nestjs/config';
     }),
     AuthModule, 
     DbModule, 
-    TripsModule,
+    TripsModule, AdminModule, NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
