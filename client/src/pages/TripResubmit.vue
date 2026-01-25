@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { onMounted, reactive, ref, watch } from "vue";
 import { useRoute, useRouter, RouterLink } from "vue-router";
 import { fetchTrip, resubmitTrip } from "../lib/api";
 
@@ -50,12 +50,21 @@ function normalizeTimeTo24Hour(hours: string, minutes: string, meridiem: string)
   return `${String(normalizedHours).padStart(2, "0")}:${String(parsedMinutes).padStart(2, "0")}`;
 }
 
+function buildLocalDateTime(dateStr: string, time24: string) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const [hours, minutes] = time24.split(":").map(Number);
+  if (!year || !month || !day || Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return null;
+  }
+  return new Date(year, month - 1, day, hours, minutes, 0, 0);
+}
+
 function splitDateTime(raw: string) {
   const date = new Date(raw);
   if (Number.isNaN(date.getTime())) {
     return { date: "", hours: "", minutes: "", meridiem: "" };
   }
-  const datePart = date.toISOString().split("T")[0];
+  const [datePart = ""] = date.toISOString().split("T");
   const hours24 = date.getHours();
   const minutes = String(date.getMinutes()).padStart(2, "0");
   const meridiem = hours24 >= 12 ? "PM" : "AM";
@@ -145,6 +154,31 @@ async function handleSubmit() {
     return;
   }
 
+  const now = new Date();
+  const outboundDateTime = buildLocalDateTime(formState.tripDate, outboundTime);
+  if (!outboundDateTime) {
+    error.value = "Invalid departure date/time.";
+    return;
+  }
+  if (outboundDateTime < now) {
+    error.value = "Departure time has already passed.";
+    return;
+  }
+
+  const returnDateTime = buildLocalDateTime(formState.returnDate, returnTimeNormalized);
+  if (!returnDateTime) {
+    error.value = "Invalid return date/time.";
+    return;
+  }
+  if (returnDateTime < now) {
+    error.value = "Return time has already passed.";
+    return;
+  }
+  if (returnDateTime < outboundDateTime) {
+    error.value = "Return time must be on or after the departure time.";
+    return;
+  }
+
   isSubmitting.value = true;
   try {
     await resubmitTrip(tripId, {
@@ -169,6 +203,16 @@ async function handleSubmit() {
 }
 
 onMounted(loadTrip);
+
+watch(
+  formState,
+  () => {
+    if (error.value) {
+      error.value = "";
+    }
+  },
+  { deep: true }
+);
 </script>
 
 <template>
@@ -277,7 +321,7 @@ onMounted(loadTrip);
         <button
           class="primary-button"
           type="submit"
-          :disabled="isSubmitting || (tripStatus && tripStatus !== 'REJECTED')"
+          :disabled="isSubmitting || (tripStatus !== '' && tripStatus !== 'REJECTED')"
         >
           {{ isSubmitting ? "Submitting..." : "Resubmit" }}
         </button>

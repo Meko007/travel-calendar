@@ -26,8 +26,20 @@ apiClient.interceptors.request.use((config) => {
 type RetriableConfig = AxiosRequestConfig & { _retry?: boolean };
 
 let refreshPromise: Promise<string | null> | null = null;
+let refreshDisabled = false;
+
+export function disableAuthRefresh() {
+  refreshDisabled = true;
+}
+
+export function enableAuthRefresh() {
+  refreshDisabled = false;
+}
 
 async function refreshAccessToken(): Promise<string | null> {
+  if (refreshDisabled) {
+    return null;
+  }
   if (!refreshPromise) {
     refreshPromise = refreshClient
       .post('/auth/refresh')
@@ -63,7 +75,8 @@ apiClient.interceptors.response.use(
 
     originalRequest._retry = true;
     const newToken = await refreshAccessToken();
-    if (!newToken) {
+    if (!newToken || refreshDisabled) {
+      localStorage.removeItem('accessToken');
       localStorage.removeItem('authUser');
       return Promise.reject(error);
     }

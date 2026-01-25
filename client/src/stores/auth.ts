@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { apiClient } from "../lib/api";
+import { apiClient, disableAuthRefresh, enableAuthRefresh } from "../lib/api";
 
 type User = {
   id: string;
@@ -62,6 +62,7 @@ export const useAuthStore = defineStore("auth", {
         if (data?.accessToken) {
           this.accessToken = data.accessToken;
           localStorage.setItem("accessToken", data.accessToken);
+          enableAuthRefresh();
         }
         if (data?.user) {
           this.user = data.user;
@@ -77,6 +78,7 @@ export const useAuthStore = defineStore("auth", {
     },
 
     logout() {
+      disableAuthRefresh();
       this.accessToken = null;
       this.user = null;
       localStorage.removeItem("accessToken");
