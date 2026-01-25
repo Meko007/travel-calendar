@@ -13,29 +13,75 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  firstName String
-  lastName  String
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  trips     Trip[]
+  id           String   @id @default(uuid())
+  firstName    String
+  lastName     String
+  email        String   @unique
+  password     String
+  role         Role     @default(USER)
+  refreshToken String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  notifications Notification[]
+  trips Trip[]
+}
+
+enum Role {
+  USER
+  ADMIN
 }
 
 model Trip {
-  id           String   @id @default(uuid())
-  destination  String
-  tripDateTime DateTime
-  mode         ModeType
-  userId       String
-  user         User     @relation(fields: [userId], references: [id])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                 String     @id @default(uuid())
+  destination        String
+  tripDateTime       DateTime
+  returnTripDateTime DateTime
+  mode               ModeType
+  returnMode         ModeType?
+  status             TripStatus @default(PENDING)
+  rejectionReason    String?
+  userId             String
+  user               User       @relation(fields: [userId], references: [id])
+  notifications      Notification[]
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@index([userId, tripDateTime])
+  @@index([userId, destination])
+  @@index([status])
 }
 
 enum ModeType {
   LAND
   AIR
   SEA
+}
+
+enum TripStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  tripId    String
+  trip      Trip     @relation(fields: [tripId], references: [id])
+  type      NotificationType
+  message   String
+  reason    String?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, readAt])
+  @@index([tripId])
+}
+
+enum NotificationType {
+  TRIP_APPROVED
+  TRIP_REJECTED
 }

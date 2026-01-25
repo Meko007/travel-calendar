@@ -14,5 +14,6 @@
 **/.prisma/
 
 server/prisma/generated
-*.sql
+# *.sql
 
+**/.vscode/
