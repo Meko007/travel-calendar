@@ -512,44 +512,46 @@ async function submitBooking() {
         </div>
       </div>
 
-      <aside v-if="selectedDate" class="meta-card">
-        <div class="meta-header">
-          <div>
-            <div class="meta-title">Trips for</div>
-            <div class="meta-date">{{ selectedDateLabel }}</div>
-          </div>
-          <button type="button" class="meta-close" @click="clearSelectedDate">
-            Close
-          </button>
-        </div>
-
-        <p v-if="tripsLoading" class="meta-loading">Loading approved trips...</p>
-        <p v-else-if="selectedTrips.length === 0" class="meta-empty">
-          No approved trips for this date.
-        </p>
-
-        <div v-else class="meta-list">
-          <article v-for="trip in selectedTrips" :key="trip.id" class="meta-trip">
-            <div class="meta-line">DESTINATION : <span>{{ trip.destination }}</span></div>
-            <div class="meta-line">MODE : <span>{{ trip.mode }}</span></div>
-            <div class="meta-line">OUTBOUND : <span>{{ formatDateTime(trip.tripDateTime) }}</span></div>
-            <div class="meta-line">RETURN : <span>{{ formatDateTime(trip.returnTripDateTime) }}</span></div>
-            <div v-if="auth.isAdmin && trip.user" class="meta-line">
-              TRAVELER : <span>{{ trip.user.firstName }} {{ trip.user.lastName }}</span>
+      <div v-if="selectedDate && !isFormOpen" class="meta-overlay" @click.self="clearSelectedDate">
+        <aside class="meta-card">
+          <div class="meta-header">
+            <div>
+              <div class="meta-title">Trips for</div>
+              <div class="meta-date">{{ selectedDateLabel }}</div>
             </div>
-          </article>
-        </div>
+            <button type="button" class="meta-close" @click="clearSelectedDate">
+              Close
+            </button>
+          </div>
 
-        <p v-if="tripsError" class="meta-error">{{ tripsError }}</p>
+          <p v-if="tripsLoading" class="meta-loading">Loading approved trips...</p>
+          <p v-else-if="selectedTrips.length === 0" class="meta-empty">
+            No approved trips for this date.
+          </p>
 
-        <div v-if="canBookSelected" class="meta-actions">
-          <button type="button" class="primary-button" @click="openFormForSelected">
-            Book travel
-          </button>
-        </div>
+          <div v-else class="meta-list">
+            <article v-for="trip in selectedTrips" :key="trip.id" class="meta-trip">
+              <div class="meta-line">DESTINATION : <span>{{ trip.destination }}</span></div>
+              <div class="meta-line">MODE : <span>{{ trip.mode }}</span></div>
+              <div class="meta-line">OUTBOUND : <span>{{ formatDateTime(trip.tripDateTime) }}</span></div>
+              <div class="meta-line">RETURN : <span>{{ formatDateTime(trip.returnTripDateTime) }}</span></div>
+              <div v-if="auth.isAdmin && trip.user" class="meta-line">
+                TRAVELER : <span>{{ trip.user.firstName }} {{ trip.user.lastName }}</span>
+              </div>
+            </article>
+          </div>
 
-        <div class="meta-cutout" aria-hidden="true"></div>
-      </aside>
+          <p v-if="tripsError" class="meta-error">{{ tripsError }}</p>
+
+          <div v-if="canBookSelected" class="meta-actions">
+            <button type="button" class="primary-button" @click="openFormForSelected">
+              Book travel
+            </button>
+          </div>
+
+          <div class="meta-cutout" aria-hidden="true"></div>
+        </aside>
+      </div>
     </div>
 
     <div v-if="isFormOpen" class="booking-overlay" @click.self="closeForm">
@@ -872,6 +874,10 @@ async function submitBooking() {
   letter-spacing: 0.04em;
 }
 
+.meta-overlay {
+  display: block;
+}
+
 .meta-header {
   display: flex;
   align-items: flex-start;
@@ -1149,6 +1155,22 @@ async function submitBooking() {
 
   .day-card {
     height: 70px;
+  }
+
+  .meta-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(50, 40, 35, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 30;
+  }
+
+  .meta-overlay .meta-card {
+    width: min(360px, 100%);
+    max-width: 360px;
   }
 }
 </style>
