@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Req, Query, UseGuard
 import { TripsService } from './trips.service';
 import { CreateTripDto, UpdateTripDto } from './dto/trips.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth/jwt-auth.guard';
+import { buildAuditContext } from '../common/audit/audit.utils';
 
 @Controller('trips')
 @UseGuards(JwtAuthGuard)
@@ -10,7 +11,7 @@ export class TripsController {
 
   @Post()
   create(@Body() createTripDto: CreateTripDto, @Req() req) {
-    return this.tripsService.create(createTripDto, req.user.id);
+    return this.tripsService.create(createTripDto, req.user.id, buildAuditContext(req));
   }
 
   @Get()
@@ -41,16 +42,16 @@ export class TripsController {
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateTripDto, @Req() req) {
-    return this.tripsService.update(id, req.user.id, dto);
+    return this.tripsService.update(id, req.user.id, dto, buildAuditContext(req));
   }
 
   @Patch(':id/resubmit')
   resubmit(@Param('id') id: string, @Body() dto: UpdateTripDto, @Req() req) {
-    return this.tripsService.resubmit(id, req.user.id, dto);
+    return this.tripsService.resubmit(id, req.user.id, dto, buildAuditContext(req));
   }
 
   @Delete(':id')
   remove(@Param('id') id: string, @Req() req) {
-    return this.tripsService.delete(id, req.user.id);
+    return this.tripsService.delete(id, req.user.id, buildAuditContext(req));
   }
 }

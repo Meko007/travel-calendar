@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Patch, Param, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '@prisma/client';
 import { RejectTripDto } from './dto/reject-trip.dto';
+import { buildAuditContext } from '../common/audit/audit.utils';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -22,12 +23,12 @@ export class AdminController {
   }
 
   @Patch('trips/:id/approve')
-  approveTrip(@Param('id') id: string) {
-    return this.adminService.approveTrip(id);
+  approveTrip(@Param('id') id: string, @Req() req) {
+    return this.adminService.approveTrip(id, req.user.id, buildAuditContext(req));
   }
 
   @Patch('trips/:id/reject')
-  rejectTrip(@Param('id') id: string, @Body() dto: RejectTripDto) {
-    return this.adminService.rejectTrip(id, dto.reason);
+  rejectTrip(@Param('id') id: string, @Body() dto: RejectTripDto, @Req() req) {
+    return this.adminService.rejectTrip(id, dto.reason, req.user.id, buildAuditContext(req));
   }
 }

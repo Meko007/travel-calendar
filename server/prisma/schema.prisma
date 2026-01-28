@@ -25,6 +25,7 @@ model User {
 
   notifications Notification[]
   trips Trip[]
+  auditLogs AuditLog[]
 }
 
 enum Role {
@@ -79,6 +80,25 @@ model Notification {
 
   @@index([userId, readAt])
   @@index([tripId])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  entityType  String
+  entityId    String?
+  action      String
+  before      Json?
+  after       Json?
+  diff        Json?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@index([action])
 }
 
 enum NotificationType {

@@ -6,6 +6,7 @@ import { Response } from 'express';
 import jwtAuthConfig from './config/jwt-auth.config';
 import type { ConfigType } from '@nestjs/config';
 import { JwtAuthGuard } from './guards/jwt-auth/jwt-auth.guard';
+import { buildAuditContext } from '../common/audit/audit.utils';
 
 @Controller('auth')
 export class AuthController {
@@ -27,8 +28,8 @@ export class AuthController {
   }
 
   @Post('signup')
-  create(@Body() dto: SignupDto) {
-    return this.authService.signup(dto);
+  create(@Body() dto: SignupDto, @Req() req) {
+    return this.authService.signup(dto, buildAuditContext(req));
   }
 
   @Post('login')

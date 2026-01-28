@@ -1,6 +1,7 @@
 import { Controller, Get, Patch, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth/jwt-auth.guard';
+import { buildAuditContext } from '../common/audit/audit.utils';
 
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
@@ -24,6 +25,6 @@ export class NotificationsController {
 
   @Patch(':id/read')
   markRead(@Param('id') id: string, @Req() req) {
-    return this.notificationsService.markRead(id, req.user.id);
+    return this.notificationsService.markRead(id, req.user.id, buildAuditContext(req));
   }
 }

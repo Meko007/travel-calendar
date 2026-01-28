@@ -6,18 +6,22 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import jwtAuthConfig from './config/jwt-auth.config';
 import type { ConfigType } from '@nestjs/config';
+import { AuditService } from '../common/audit/audit.service';
+import { AuditAction, AuditEntity } from '../common/audit/audit.constants';
+import type { AuditContext } from '../common/audit/audit.types';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: DbService,
     private readonly jwtService: JwtService,
+    private readonly audit: AuditService,
 
     @Inject(jwtAuthConfig.KEY)
     private authConfig: ConfigType<typeof jwtAuthConfig>,
   ) {}
 
-  async signup(dto: SignupDto) {
+  async signup(dto: SignupDto, context?: AuditContext) {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -34,6 +38,15 @@ export class AuthService {
         password: hash,
       }
     });
+
+    await this.audit.log({
+      userId: newUser.id,
+      entityType: AuditEntity.USER,
+      entityId: newUser.id,
+      action: AuditAction.USER_CREATED,
+      before: null,
+      after: newUser,
+    }, context);
 
     return {
       message: 'User created successfully',
