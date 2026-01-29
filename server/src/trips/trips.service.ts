@@ -2,17 +2,21 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { CreateTripDto, UpdateTripDto } from './dto/trips.dto';
 import { DbService } from '../common/db/db.service';
 import { TripStatus } from '@prisma/client';
+import { AuditService } from '../common/audit/audit.service';
+import { AuditAction, AuditEntity } from '../common/audit/audit.constants';
+import type { AuditContext } from '../common/audit/audit.types';
 
 @Injectable()
 export class TripsService {
   constructor(
       private readonly prisma: DbService,
+      private readonly audit: AuditService,
   ) {}
 
-  async create(dto: CreateTripDto, userId: string) {
+  async create(dto: CreateTripDto, userId: string, context?: AuditContext) {
     const { tripDateTime, returnTripDateTime } = this.normalizeTripDates(dto.tripDateTime, dto.returnTripDateTime);
 
-    return await this.prisma.trip.create({
+    const created = await this.prisma.trip.create({
       data: {
         destination: dto.destination,
         tripDateTime,
@@ -22,6 +26,17 @@ export class TripsService {
         userId,
       }
     });
+
+    await this.audit.log({
+      userId,
+      entityType: AuditEntity.TRIP,
+      entityId: created.id,
+      action: AuditAction.TRIP_CREATED,
+      before: null,
+      after: created,
+    }, context);
+
+    return created;
   }
 
   async findAll(page: number = 1, limit: number = 10, userId: string, status?: string) {
@@ -79,18 +94,36 @@ export class TripsService {
     });
   }
 
-  async update(id: string, userId: string, dto: UpdateTripDto) {
+  async update(id: string, userId: string, dto: UpdateTripDto, context?: AuditContext) {
     const data = this.normalizeUpdateDto(dto);
-    return await this.prisma.trip.update({
+    const before = await this.prisma.trip.findUnique({
+      where: {
+        id,
+        userId,
+      },
+    });
+
+    const updated = await this.prisma.trip.update({
       where: {
         id,
         userId,
       },
       data,
     });
+
+    await this.audit.log({
+      userId,
+      entityType: AuditEntity.TRIP,
+      entityId: updated.id,
+      action: AuditAction.TRIP_UPDATED,
+      before,
+      after: updated,
+    }, context);
+
+    return updated;
   }
 
-  async resubmit(id: string, userId: string, dto: UpdateTripDto) {
+  async resubmit(id: string, userId: string, dto: UpdateTripDto, context?: AuditContext) {
     const existing = await this.prisma.trip.findUnique({
       where: { id, userId },
     });
@@ -104,7 +137,7 @@ export class TripsService {
     }
 
     const data = this.normalizeUpdateDto(dto);
-    return await this.prisma.trip.update({
+    const updated = await this.prisma.trip.update({
       where: { id, userId },
       data: {
         ...data,
@@ -112,15 +145,42 @@ export class TripsService {
         rejectionReason: null,
       },
     });
+
+    await this.audit.log({
+      userId,
+      entityType: AuditEntity.TRIP,
+      entityId: updated.id,
+      action: AuditAction.TRIP_RESUBMITTED,
+      before: existing,
+      after: updated,
+    }, context);
+
+    return updated;
   }
 
-  async delete(id: string, userId: string) {
+  async delete(id: string, userId: string, context?: AuditContext) {
+    const existing = await this.prisma.trip.findUnique({
+      where: {
+        id,
+        userId,
+      },
+    });
+
     await this.prisma.trip.delete({
       where: {
         id,
         userId,
       },
     });
+
+    await this.audit.log({
+      userId,
+      entityType: AuditEntity.TRIP,
+      entityId: id,
+      action: AuditAction.TRIP_DELETED,
+      before: existing,
+      after: null,
+    }, context);
 
     return { message: 'Trip deleted successfully' };
   }

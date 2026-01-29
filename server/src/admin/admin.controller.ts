@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Patch, Param, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '@prisma/client';
 import { RejectTripDto } from './dto/reject-trip.dto';
+import { buildAuditContext } from '../common/audit/audit.utils';
 import { SetTemporaryPasswordDto } from './dto/set-temporary-password.dto';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
@@ -47,21 +48,21 @@ export class AdminController {
   @Patch('trips/:id/approve')
   @ApiOperation({ summary: 'Approve a trip by ID' })
   @ApiResponse({ status: 200, description: 'Trip approved successfully.' })
-  approveTrip(@Param('id') id: string) {
-    return this.adminService.approveTrip(id);
+  approveTrip(@Param('id') id: string, @Req() req) {
+    return this.adminService.approveTrip(id, req.user.id, buildAuditContext(req));
   }
 
   @Patch('trips/:id/reject')
   @ApiOperation({ summary: 'Reject a trip by ID with a reason' })
   @ApiResponse({ status: 200, description: 'Trip rejected successfully.' })
-  rejectTrip(@Param('id') id: string, @Body() dto: RejectTripDto) {
-    return this.adminService.rejectTrip(id, dto.reason);
+  rejectTrip(@Param('id') id: string, @Body() dto: RejectTripDto, @Req() req) {
+    return this.adminService.rejectTrip(id, dto.reason, req.user.id, buildAuditContext(req));
   }
 
   @Patch('users/:id/temporary-password')
   @ApiOperation({ summary: 'Set a temporary password for a user by ID' })
   @ApiResponse({ status: 200, description: 'Temporary password set successfully.' })
-  setTemporaryPassword(@Param('id') userId: string, @Body() dto: SetTemporaryPasswordDto) {
-    return this.adminService.setTemporaryPassword(userId, dto.temporaryPassword);
+  setTemporaryPassword(@Param('id') userId: string, @Body() dto: SetTemporaryPasswordDto, @Req() req) {
+    return this.adminService.setTemporaryPassword(userId, dto.temporaryPassword, req.user.id, buildAuditContext(req));
   }
 }

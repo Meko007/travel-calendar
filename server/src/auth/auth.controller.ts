@@ -7,6 +7,7 @@ import { Response } from 'express';
 import jwtAuthConfig from './config/jwt-auth.config';
 import type { ConfigType } from '@nestjs/config';
 import { JwtAuthGuard } from './guards/jwt-auth/jwt-auth.guard';
+import { buildAuditContext } from '../common/audit/audit.utils';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 @Controller('auth')
@@ -33,8 +34,8 @@ export class AuthController {
   @ApiOperation({ summary: 'User signup '})
   @ApiBody({ type: SignupDto })
   @ApiResponse({ status: 201, description: 'User has been successfully created.' })
-  create(@Body() dto: SignupDto) {
-    return this.authService.signup(dto);
+  create(@Body() dto: SignupDto, @Req() req) {
+    return this.authService.signup(dto, buildAuditContext(req));
   }
 
   @Post('login')

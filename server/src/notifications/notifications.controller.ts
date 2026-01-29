@@ -1,6 +1,7 @@
 import { Controller, Delete, Get, Patch, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth/jwt-auth.guard';
+import { buildAuditContext } from '../common/audit/audit.utils';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 @Controller('notifications')
@@ -34,7 +35,7 @@ export class NotificationsController {
   @ApiOperation({ summary: 'Mark Notification as Read' })
   @ApiResponse({ status: 200, description: 'Notification marked as read successfully.' })
   markRead(@Param('id') id: string, @Req() req) {
-    return this.notificationsService.markRead(id, req.user.id);
+    return this.notificationsService.markRead(id, req.user.id, buildAuditContext(req));
   }
 
   @Delete(':id')

@@ -7,6 +7,7 @@ import { DbModule } from './common/db/db.module';
 import { ConfigModule } from '@nestjs/config';
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { AuditModule } from './common/audit/audit.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     }),
     AuthModule, 
     DbModule, 
+    AuditModule,
     TripsModule, AdminModule, NotificationsModule,
   ],
   controllers: [AppController],

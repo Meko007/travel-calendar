@@ -13,19 +13,21 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  firstName    String
-  lastName     String
-  email        String   @unique
-  password     String
-  role         Role     @default(USER)
-  refreshToken String?
-  mustChangePassword Boolean @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  firstName          String
+  lastName           String
+  email              String   @unique
+  password           String
+  role               Role     @default(USER)
+  refreshToken       String?
+  mustChangePassword Boolean  @default(false)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   notifications Notification[]
-  trips Trip[]
+  trips         Trip[]
+  auditLogs     AuditLog[]
 }
 
 enum Role {
@@ -34,19 +36,19 @@ enum Role {
 }
 
 model Trip {
-  id                 String     @id @default(uuid())
+  id                 String         @id @default(uuid())
   destination        String
   tripDateTime       DateTime
   returnTripDateTime DateTime
   mode               ModeType
   returnMode         ModeType?
-  status             TripStatus @default(PENDING)
+  status             TripStatus     @default(PENDING)
   rejectionReason    String?
   userId             String
-  user               User       @relation(fields: [userId], references: [id])
+  user               User           @relation(fields: [userId], references: [id])
   notifications      Notification[]
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   @@index([userId, tripDateTime])
   @@index([userId, destination])
@@ -66,17 +68,17 @@ enum TripStatus {
 }
 
 model Notification {
-  id        String   @id @default(uuid())
+  id        String           @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User             @relation(fields: [userId], references: [id])
   tripId    String
-  trip      Trip     @relation(fields: [tripId], references: [id])
+  trip      Trip             @relation(fields: [tripId], references: [id])
   type      NotificationType
   message   String
   reason    String?
   readAt    DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 
   @@index([userId, readAt])
   @@index([tripId])
@@ -85,4 +87,23 @@ model Notification {
 enum NotificationType {
   TRIP_APPROVED
   TRIP_REJECTED
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  entityType String
+  entityId   String?
+  action     String
+  before     Json?
+  after      Json?
+  diff       Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@index([action])
 }

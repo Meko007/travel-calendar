@@ -1,11 +1,17 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { NotificationType, TripStatus, Prisma } from '@prisma/client';
 import { DbService } from '../common/db/db.service';
+import { AuditService } from '../common/audit/audit.service';
+import { AuditAction, AuditEntity } from '../common/audit/audit.constants';
+import type { AuditContext } from '../common/audit/audit.types';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: DbService) {}
+  constructor(
+    private readonly prisma: DbService,
+    private readonly audit: AuditService,
+  ) {}
 
   private parseStatus(status?: string): TripStatus {
     if (!status) {
@@ -86,38 +92,21 @@ export class AdminService {
     });
   }
 
-  async approveTrip(id: string) {
-    return this.updateTripStatus(id, TripStatus.APPROVED);
+  async approveTrip(id: string, adminUserId: string, context?: AuditContext) {
+    return this.updateTripStatus(id, TripStatus.APPROVED, undefined, adminUserId, context);
   }
 
-  async rejectTrip(id: string, reason: string) {
-    return this.updateTripStatus(id, TripStatus.REJECTED, reason);
+  async rejectTrip(id: string, reason: string, adminUserId: string, context?: AuditContext) {
+    return this.updateTripStatus(id, TripStatus.REJECTED, reason, adminUserId, context);
   }
 
-  async setTemporaryPassword(userId: string, temporaryPassword: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    const matchesCurrent = await bcrypt.compare(temporaryPassword, user.password);
-    if (matchesCurrent) {
-      throw new BadRequestException('Temporary password must be different from the current password');
-    }
-
-    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        password: hashedPassword,
-        mustChangePassword: true,
-        refreshToken: null,
-      },
-    });
-
-    return { message: 'Temporary password set successfully' };
-  }
-
-  private async updateTripStatus(id: string, status: TripStatus, reason?: string) {
+  private async updateTripStatus(
+    id: string,
+    status: TripStatus,
+    reason?: string,
+    adminUserId?: string,
+    context?: AuditContext,
+  ) {
     const trip = await this.prisma.trip.findUnique({ where: { id } });
     if (!trip) {
       throw new NotFoundException('Trip not found');
@@ -155,6 +144,53 @@ export class AdminService {
       },
     });
 
+    await this.audit.log({
+      userId: adminUserId ?? null,
+      entityType: AuditEntity.TRIP,
+      entityId: updated.id,
+      action: status === TripStatus.APPROVED ? AuditAction.TRIP_APPROVED : AuditAction.TRIP_REJECTED,
+      before: trip,
+      after: updated,
+    }, context);
+
     return updated;
   }
+
+  async setTemporaryPassword(
+    userId: string,
+    temporaryPassword: string,
+    adminUserId?: string,
+    context?: AuditContext,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    const matchesCurrent = await bcrypt.compare(temporaryPassword, user.password);
+    if (matchesCurrent) {
+      throw new BadRequestException('Temporary password must be different from the current password');
+    }
+
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+        mustChangePassword: true,
+        refreshToken: null,
+      },
+    });
+
+    await this.audit.log({
+      userId: adminUserId ?? null,
+      entityType: AuditEntity.USER,
+      entityId: userId,
+      action: AuditAction.USER_TEMPORARY_PASSWORD_SET,
+      before: user,
+      after: { ...user, password: hashedPassword },
+    }, context);
+
+    return { message: 'Temporary password set successfully' };
+  }
+
 }
