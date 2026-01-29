@@ -8,6 +8,7 @@ type User = {
   lastName?: string;
   name?: string;
   role?: "USER" | "ADMIN";
+  mustChangePassword?: boolean;
 };
 
 function getStoredUser(): User | null {
@@ -71,6 +72,24 @@ export const useAuthStore = defineStore("auth", {
         return data;
       } catch (e: any) {
         this.error = e?.response?.data?.message ?? e?.message ?? "Login failed";
+        throw e;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async changePassword(payload: { oldPassword: string; newPassword: string }) {
+      this.loading = true;
+      this.error = null;
+      try {
+        const { data } = await apiClient.post("/auth/change-password", payload);
+        if (this.user) {
+          this.user = { ...this.user, mustChangePassword: false };
+          localStorage.setItem("authUser", JSON.stringify(this.user));
+        }
+        return data;
+      } catch (e: any) {
+        this.error = e?.response?.data?.message ?? e?.message ?? "Password change failed";
         throw e;
       } finally {
         this.loading = false;

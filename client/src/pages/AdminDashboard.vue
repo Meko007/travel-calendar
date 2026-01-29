@@ -57,6 +57,7 @@ onMounted(loadDashboard);
         <div class="admin-subtitle">Welcome back, {{ greetingName }}.</div>
       </div>
       <div class="admin-actions">
+        <RouterLink class="ghost-button" to="/admin/users">Users</RouterLink>
         <RouterLink class="primary-button" to="/calendar">Calendar</RouterLink>
       </div>
     </header>

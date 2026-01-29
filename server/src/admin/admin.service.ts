@@ -1,9 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { NotificationType, TripStatus } from '@prisma/client';
+import { NotificationType, TripStatus, Prisma } from '@prisma/client';
 import { DbService } from '../common/db/db.service';
 import { AuditService } from '../common/audit/audit.service';
 import { AuditAction, AuditEntity } from '../common/audit/audit.constants';
 import type { AuditContext } from '../common/audit/audit.types';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AdminService {
@@ -23,6 +24,48 @@ export class AdminService {
     }
 
     return normalized as TripStatus;
+  }
+
+  async listUsers(search?: string, page: number = 1, limit: number = 20) {
+    const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 20;
+    const normalizedSearch = search?.trim();
+
+    const where: Prisma.UserWhereInput | undefined = normalizedSearch
+      ? {
+          OR: [
+            { email: { contains: normalizedSearch, mode: Prisma.QueryMode.insensitive } },
+            { firstName: { contains: normalizedSearch, mode: Prisma.QueryMode.insensitive } },
+            { lastName: { contains: normalizedSearch, mode: Prisma.QueryMode.insensitive } },
+          ],
+        }
+      : undefined;
+
+    const [data, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          mustChangePassword: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (safePage - 1) * safeLimit,
+        take: safeLimit,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return {
+      data,
+      total,
+      page: safePage,
+      limit: safeLimit,
+    };
   }
 
   async listTrips(status?: string, page: number = 1, limit: number = 10) {
@@ -112,4 +155,42 @@ export class AdminService {
 
     return updated;
   }
+
+  async setTemporaryPassword(
+    userId: string,
+    temporaryPassword: string,
+    adminUserId?: string,
+    context?: AuditContext,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    const matchesCurrent = await bcrypt.compare(temporaryPassword, user.password);
+    if (matchesCurrent) {
+      throw new BadRequestException('Temporary password must be different from the current password');
+    }
+
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+        mustChangePassword: true,
+        refreshToken: null,
+      },
+    });
+
+    await this.audit.log({
+      userId: adminUserId ?? null,
+      entityType: AuditEntity.USER,
+      entityId: userId,
+      action: AuditAction.USER_TEMPORARY_PASSWORD_SET,
+      before: user,
+      after: { ...user, password: hashedPassword },
+    }, context);
+
+    return { message: 'Temporary password set successfully' };
+  }
+
 }

@@ -1,4 +1,4 @@
-import { ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { DbService } from '../common/db/db.service';
@@ -9,6 +9,7 @@ import type { ConfigType } from '@nestjs/config';
 import { AuditService } from '../common/audit/audit.service';
 import { AuditAction, AuditEntity } from '../common/audit/audit.constants';
 import type { AuditContext } from '../common/audit/audit.types';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @Injectable()
 export class AuthService {
@@ -100,6 +101,7 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
+        mustChangePassword: user.mustChangePassword,
       },
     }
   }
@@ -134,11 +136,14 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
+        mustChangePassword: user.mustChangePassword,
       },
     }
   }
 
-  async refreshTokens(refreshToken: string | undefined) {
+  async refreshTokens(dto: RefreshTokenDto) {
+    const { refreshToken } = dto;
+    
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token missing');
     }
@@ -193,6 +198,7 @@ export class AuthService {
         firstName: true,
         lastName: true,
         role: true,
+        mustChangePassword: true,
       },
     });
 
@@ -201,6 +207,28 @@ export class AuthService {
     }
 
     return { user };
+  }
+
+  async changePassword(userId: string, oldPassword: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user || !(await bcrypt.compare(oldPassword, user.password))) {
+      throw new UnauthorizedException('Old password is incorrect');
+    }
+    if (await bcrypt.compare(newPassword, user.password)) {
+      throw new BadRequestException('New password must be different from the current password');
+    }
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { 
+        password: hashedNewPassword,
+        mustChangePassword: false,
+        refreshToken: null,
+      },
+    });
+    return { message: 'Password changed successfully' };
   }
 
 }

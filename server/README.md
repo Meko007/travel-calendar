@@ -1,98 +1,118 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Travel Calendar API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+The backend for the Travel Calendar app. This NestJS API provides authentication, trip management, admin approvals, and notification delivery. It uses PostgreSQL via Prisma and exposes Swagger documentation.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Features
+- JWT-based auth with access tokens + refresh tokens (stored as httpOnly cookies)
+- Role-aware endpoints for admins and standard users
+- Trip lifecycle management (PENDING, APPROVED, REJECTED)
+- Notifications for trip approvals/rejections
+- Swagger docs at `/api/docs`
 
-## Description
+## Tech stack
+- NestJS
+- Prisma ORM + PostgreSQL
+- JWT + Passport
+- Swagger (OpenAPI)
+- Jest for tests
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Project structure
+- `server/src/auth`: signup, login, refresh, and password changes
+- `server/src/trips`: user trip creation, listing, and resubmission
+- `server/src/admin`: admin approvals and user management
+- `server/src/notifications`: notification listing and read status
+- `server/prisma`: database schema and migrations
 
-## Project setup
+## Environment variables
+Create `server/.env` from `server/.env.sample`:
 
-```bash
-$ npm install
+```
+PORT=3001
+DATABASE_URL="postgresql://<username>:<password>@<host>:5432/travel_calendar?schema=public"
+JWT_SECRET="<your_jwt_secret>"
+JWT_EXPIRES_IN=3600
+JWT_REFRESH_SECRET="<your_jwt_refresh_secret>"
+JWT_REFRESH_EXPIRES_IN=604800
+CORS_ORIGINS="http://localhost:5173,https://your-app.vercel.app"
+NODE_ENV="dev"
 ```
 
-## Compile and run the project
+Notes:
+- `CORS_ORIGINS` is a comma-separated list. The API allows credentials, so the frontend origin must be listed.
+- In non-prod environments, `http://localhost:5173` is added automatically.
+- Refresh token cookies are set on `/api/auth/refresh` with secure settings in `NODE_ENV=prod`.
 
+## Setup
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+cd server
+npm install
+cp .env.sample .env
 ```
 
-## Run tests
+## Database
+This project uses Prisma with PostgreSQL.
 
+Common commands:
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npx prisma generate
+npx prisma migrate dev
 ```
+Ensure `DATABASE_URL` is set before running Prisma commands.
+
+## Run locally
+```bash
+npm run start:dev
+```
+
+The API starts at `http://localhost:3001/api`.
+
+## Swagger docs
+```text
+http://localhost:3001/api/docs
+```
+
+## Scripts
+```bash
+npm run build
+npm run start
+npm run start:dev
+npm run start:prod
+npm run lint
+npm run test
+npm run test:e2e
+npm run test:cov
+```
+
+## Authentication overview
+- `POST /api/auth/signup`: create user
+- `POST /api/auth/login`: login user, returns access token + sets refresh cookie
+- `POST /api/auth/admin/login`: login admin
+- `POST /api/auth/refresh`: rotate tokens using refresh cookie
+- `POST /api/auth/change-password`: update password (auth required)
+- `GET /api/auth/me`: current user profile (auth required)
+
+Access tokens are sent in the `Authorization: Bearer <token>` header. Refresh tokens are stored in an httpOnly cookie and sent automatically by the browser when `withCredentials` is enabled.
+
+## Trip and notification endpoints
+- `POST /api/trips`: create trip (auth required)
+- `GET /api/trips`: list trips with pagination and optional status filter (auth required)
+- `GET /api/trips/:id`: trip details (auth required)
+- `GET /api/trips/date/:date`: trips for a date (auth required)
+- `PATCH /api/trips/:id`: update trip (auth required)
+- `PATCH /api/trips/:id/resubmit`: resubmit rejected trip (auth required)
+- `DELETE /api/trips/:id`: delete trip (auth required)
+- `GET /api/notifications`: list notifications (auth required)
+- `PATCH /api/notifications/:id/read`: mark notification read (auth required)
+
+## Admin endpoints
+- `GET /api/admin/trips`: list trips (status + pagination)
+- `PATCH /api/admin/trips/:id/approve`: approve pending trip
+- `PATCH /api/admin/trips/:id/reject`: reject pending trip (requires reason)
+- `GET /api/admin/users`: list users with search + pagination
+- `PATCH /api/admin/users/:id/temporary-password`: set a temporary password
 
 ## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run build
+npm run start:prod
 ```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
