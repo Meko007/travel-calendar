@@ -6,12 +6,13 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '@prisma/client';
 import { RejectTripDto } from './dto/reject-trip.dto';
 import { SetTemporaryPasswordDto } from './dto/set-temporary-password.dto';
-import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN)
 @ApiTags('Admin')
+@ApiBearerAuth('JwtAuth')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 

@@ -36,4 +36,18 @@ export class NotificationsService {
       data: { readAt: new Date() },
     });
   }
+
+  async delete(id: string, userId: string) {
+    const existing = await this.prisma.notification.findUnique({
+      where: { id },
+    });
+
+    if (!existing || existing.userId !== userId) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    return this.prisma.notification.delete({
+      where: { id },
+    });
+  }
 }

@@ -2,11 +2,12 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Req, Query, UseGuard
 import { TripsService } from './trips.service';
 import { CreateTripDto, UpdateTripDto } from './dto/trips.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth/jwt-auth.guard';
-import { ApiBody, ApiOperation, ApiResponse, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiResponse, ApiQuery, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
 @Controller('trips')
 @UseGuards(JwtAuthGuard)
 @ApiTags('Trips')
+@ApiBearerAuth('JwtAuth')
 export class TripsController {
   constructor(private readonly tripsService: TripsService) {}
 

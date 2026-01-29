@@ -7,7 +7,7 @@ import { Response } from 'express';
 import jwtAuthConfig from './config/jwt-auth.config';
 import type { ConfigType } from '@nestjs/config';
 import { JwtAuthGuard } from './guards/jwt-auth/jwt-auth.guard';
-import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 @Controller('auth')
 @ApiTags('Authentication')
@@ -73,6 +73,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Post('change-password')
+  @ApiBearerAuth('JwtAuth')
   @ApiOperation({ summary: 'Change user password '})
   @ApiBody({ type: ChangePasswordDto })
   @ApiResponse({ status: 200, description: 'Password has been successfully changed.' })
@@ -83,6 +84,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
+  @ApiBearerAuth('JwtAuth')
   @ApiOperation({ summary: 'Get current user info '})
   @ApiResponse({ status: 200, description: 'Current user info retrieved successfully.' })
   me(@Req() req) {
