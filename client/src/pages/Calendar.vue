@@ -11,6 +11,7 @@ const selectedMonth = ref(today.getMonth() + 1);
 const auth = useAuthStore();
 const router = useRouter();
 const unreadCount = ref(0);
+const menuOpen = ref(false);
 
 const selectedMonthInput = computed({
   get() {
@@ -66,6 +67,14 @@ function handleLogout() {
   router.push("/login");
 }
 
+function toggleMenu() {
+  menuOpen.value = !menuOpen.value;
+}
+
+function closeMenu() {
+  menuOpen.value = false;
+}
+
 async function loadUnreadNotifications() {
   if (auth.isAdmin) {
     unreadCount.value = 0;
@@ -89,18 +98,28 @@ onMounted(() => {
     <div class="calendar-topbar">
       <div class="greeting-block">
         <div class="greeting">Hi, <span>{{ greetingName }}</span></div>
+      </div>
+      <div class="menu-wrap">
+        <button type="button" class="menu-toggle" @click="toggleMenu" aria-label="Toggle menu">
+          &#9776;
+        </button>
+        <nav class="topbar-actions" :class="{ 'is-open': menuOpen }">
+          <RouterLink
+            v-if="!auth.isAdmin"
+            class="nav-button notify-button"
+            to="/notifications"
+            @click="closeMenu"
+          >
+            Notifications
+            <span v-if="unreadCount > 0" class="notify-badge">{{ unreadCount }}</span>
+          </RouterLink>
+        <RouterLink v-if="auth.isAdmin" class="nav-button" to="/admin" @click="closeMenu">
+          Admin
+        </RouterLink>
         <button type="button" class="nav-button logout-button" @click="handleLogout">
           Logout
         </button>
-      </div>
-      <div class="topbar-actions">
-        <RouterLink v-if="!auth.isAdmin" class="nav-button notify-button" to="/notifications">
-          Notifications
-          <span v-if="unreadCount > 0" class="notify-badge">{{ unreadCount }}</span>
-        </RouterLink>
-        <RouterLink v-if="auth.isAdmin" class="nav-button" to="/admin">
-          Admin
-        </RouterLink>
+        </nav>
       </div>
     </div>
 
@@ -134,9 +153,16 @@ onMounted(() => {
   padding: 0 28px;
   margin-bottom: 8px;
   color: var(--ink);
+  position: relative;
 }
 
 .topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.menu-wrap {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -220,19 +246,87 @@ onMounted(() => {
   font-weight: 600;
 }
 
+.logout-button {
+  color: #b00020;
+  border-color: #b00020;
+}
+
+.logout-button:hover {
+  color: #fff5f5;
+  background: #b00020;
+  border-color: #8a0018;
+}
+
 .nav-button:hover {
   border-color: #c8b9ae;
 }
 
+.menu-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid #d7cec6;
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  color: #3c3a37;
+}
+
 @media (max-width: 700px) {
   .calendar-topbar {
-    flex-direction: column;
     align-items: flex-start;
   }
 
+  .menu-wrap {
+    margin-left: auto;
+    position: relative;
+  }
+
   .topbar-actions {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    background: #fffdfb;
+    border: 1px solid #d7cec6;
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 12px 24px rgba(60, 58, 55, 0.12);
+    margin-top: 6px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(6px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 5;
+    min-width: 180px;
+    text-align: left;
+  }
+
+  .topbar-actions.is-open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  .menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 32px;
+  }
+
+  .topbar-actions .nav-button {
+    display: flex;
+    justify-content: center;
     width: 100%;
-    justify-content: flex-start;
+    text-align: center;
+  }
+
+  .nav-button {
+    width: 100%;
   }
 
   .month-controls {

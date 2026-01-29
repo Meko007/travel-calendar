@@ -13,7 +13,12 @@ const showPassword = ref(false);
 
 const submit = async () => {
   await auth.login({ email: email.value.trim(), password: password.value });
-  const next = (route.query.next as string) || "/calendar";
+  if (auth.user?.mustChangePassword) {
+    const next = (route.query.next as string) || "/calendar";
+    router.push({ path: "/change-password", query: { next } });
+    return;
+  }
+  const next = (route.query.next as string) || (auth.isAdmin ? "/admin" : "/calendar");
   router.push(next);
 };
 </script>
@@ -89,6 +94,9 @@ const submit = async () => {
         >
           {{ auth.loading ? "Signing in..." : "Login" }}
         </button>
+        <p class="text-xs opacity-70">
+          Forgot Password? Please contact your administrator for a reset.
+        </p>
       </form>
 
       <p class="text-sm mt-4">

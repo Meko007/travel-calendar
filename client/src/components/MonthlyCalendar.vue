@@ -44,15 +44,7 @@ const monthName = computed(() =>
 
 const daysOfWeek = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
-const dayDecorations: Record<number, DayDecor> = {
-  1: { tone: "lavender" },
-  9: { tone: "sand" },
-  11: { tone: "sky" },
-  13: { tone: "rose" },
-  17: { tone: "lavender" },
-  21: { tone: "sky" },
-  30: { tone: "rose" },
-};
+const dayDecorations: Record<number, DayDecor> = {};
 
 const today = new Date();
 today.setHours(0, 0, 0, 0);
@@ -164,6 +156,7 @@ const cells = computed(() => {
     isBookable: boolean;
     tripSummary?: string;
     tripCount?: number;
+    hasApprovedTrips?: boolean;
   }[] = [];
   for (let i = 0; i < totalCells; i++) {
     const dayNum = i - start + 1;
@@ -186,11 +179,21 @@ const cells = computed(() => {
 
     const date = new Date(cellYear, cellMonth - 1, day);
     const isBookable = inMonth && date >= today;
-    const decor = inMonth ? dayDecorations[day] : undefined;
     const tripKey = toDateKeyFromDate(date);
     const dayTrips = tripsByDate.value[tripKey] ?? [];
+    const hasApprovedTrips = dayTrips.length > 0;
+    const decor = inMonth ? dayDecorations[day] : undefined;
     const tripSummary = summarizeTrips(dayTrips);
-    arr.push({ day, inMonth, decor, date, isBookable, tripSummary, tripCount: dayTrips.length });
+    arr.push({
+      day,
+      inMonth,
+      decor,
+      date,
+      isBookable,
+      tripSummary,
+      tripCount: dayTrips.length,
+      hasApprovedTrips,
+    });
   }
   return arr;
 });
@@ -488,6 +491,7 @@ async function submitBooking() {
             :class="[
               c.inMonth ? 'in-month' : 'out-month',
               c.decor?.tone ? `tone-${c.decor.tone}` : '',
+              c.hasApprovedTrips ? 'has-approved' : '',
               c.isBookable ? 'is-bookable' : 'is-readonly',
               selectedDateKey && formatIsoDate(c.date) === selectedDateKey ? 'is-selected' : '',
             ]"
@@ -512,44 +516,46 @@ async function submitBooking() {
         </div>
       </div>
 
-      <aside v-if="selectedDate" class="meta-card">
-        <div class="meta-header">
-          <div>
-            <div class="meta-title">Trips for</div>
-            <div class="meta-date">{{ selectedDateLabel }}</div>
-          </div>
-          <button type="button" class="meta-close" @click="clearSelectedDate">
-            Close
-          </button>
-        </div>
-
-        <p v-if="tripsLoading" class="meta-loading">Loading approved trips...</p>
-        <p v-else-if="selectedTrips.length === 0" class="meta-empty">
-          No approved trips for this date.
-        </p>
-
-        <div v-else class="meta-list">
-          <article v-for="trip in selectedTrips" :key="trip.id" class="meta-trip">
-            <div class="meta-line">DESTINATION : <span>{{ trip.destination }}</span></div>
-            <div class="meta-line">MODE : <span>{{ trip.mode }}</span></div>
-            <div class="meta-line">OUTBOUND : <span>{{ formatDateTime(trip.tripDateTime) }}</span></div>
-            <div class="meta-line">RETURN : <span>{{ formatDateTime(trip.returnTripDateTime) }}</span></div>
-            <div v-if="auth.isAdmin && trip.user" class="meta-line">
-              TRAVELER : <span>{{ trip.user.firstName }} {{ trip.user.lastName }}</span>
+      <div v-if="selectedDate && !isFormOpen" class="meta-overlay" @click.self="clearSelectedDate">
+        <aside class="meta-card">
+          <div class="meta-header">
+            <div>
+              <div class="meta-title">Trips for</div>
+              <div class="meta-date">{{ selectedDateLabel }}</div>
             </div>
-          </article>
-        </div>
+            <button type="button" class="meta-close" @click="clearSelectedDate">
+              Close
+            </button>
+          </div>
 
-        <p v-if="tripsError" class="meta-error">{{ tripsError }}</p>
+          <p v-if="tripsLoading" class="meta-loading">Loading approved trips...</p>
+          <p v-else-if="selectedTrips.length === 0" class="meta-empty">
+            No approved trips for this date.
+          </p>
 
-        <div v-if="canBookSelected" class="meta-actions">
-          <button type="button" class="primary-button" @click="openFormForSelected">
-            Book travel
-          </button>
-        </div>
+          <div v-else class="meta-list">
+            <article v-for="trip in selectedTrips" :key="trip.id" class="meta-trip">
+              <div class="meta-line">DESTINATION : <span>{{ trip.destination }}</span></div>
+              <div class="meta-line">MODE : <span>{{ trip.mode }}</span></div>
+              <div class="meta-line">OUTBOUND : <span>{{ formatDateTime(trip.tripDateTime) }}</span></div>
+              <div class="meta-line">RETURN : <span>{{ formatDateTime(trip.returnTripDateTime) }}</span></div>
+              <div v-if="auth.isAdmin && trip.user" class="meta-line">
+                TRAVELER : <span>{{ trip.user.firstName }} {{ trip.user.lastName }}</span>
+              </div>
+            </article>
+          </div>
 
-        <div class="meta-cutout" aria-hidden="true"></div>
-      </aside>
+          <p v-if="tripsError" class="meta-error">{{ tripsError }}</p>
+
+          <div v-if="canBookSelected" class="meta-actions">
+            <button type="button" class="primary-button" @click="openFormForSelected">
+              Book travel
+            </button>
+          </div>
+
+          <div class="meta-cutout" aria-hidden="true"></div>
+        </aside>
+      </div>
     </div>
 
     <div v-if="isFormOpen" class="booking-overlay" @click.self="closeForm">
@@ -840,8 +846,10 @@ async function submitBooking() {
   border-radius: 999px;
   padding: 2px 6px;
   font-size: 10px;
-  background: #efe7df;
+  background: #ffffff;
   color: #3c3a37;
+  border: 1px solid #e6d8c9;
+  box-shadow: 0 4px 8px rgba(60, 58, 55, 0.12);
 }
 
 .tone-lavender {
@@ -860,6 +868,10 @@ async function submitBooking() {
   background: var(--tone-rose);
 }
 
+.has-approved {
+  background: #f3e1c6;
+}
+
 .meta-card {
   width: 200px;
   min-height: 170px;
@@ -870,6 +882,10 @@ async function submitBooking() {
   box-shadow: 0 10px 20px rgba(64, 52, 40, 0.12);
   font-size: 12px;
   letter-spacing: 0.04em;
+}
+
+.meta-overlay {
+  display: block;
 }
 
 .meta-header {
@@ -1149,6 +1165,22 @@ async function submitBooking() {
 
   .day-card {
     height: 70px;
+  }
+
+  .meta-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(50, 40, 35, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 30;
+  }
+
+  .meta-overlay .meta-card {
+    width: min(360px, 100%);
+    max-width: 360px;
   }
 }
 </style>
