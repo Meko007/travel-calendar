@@ -2,18 +2,28 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Req, Query, UseGuard
 import { TripsService } from './trips.service';
 import { CreateTripDto, UpdateTripDto } from './dto/trips.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth/jwt-auth.guard';
+import { ApiBody, ApiOperation, ApiResponse, ApiQuery, ApiTags } from '@nestjs/swagger';
 
 @Controller('trips')
 @UseGuards(JwtAuthGuard)
+@ApiTags('Trips')
 export class TripsController {
   constructor(private readonly tripsService: TripsService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Create a new trip' })
+  @ApiBody({ type: CreateTripDto })
+  @ApiResponse({ status: 201, description: 'The trip has been successfully created.' })
   create(@Body() createTripDto: CreateTripDto, @Req() req) {
     return this.tripsService.create(createTripDto, req.user.id);
   }
 
   @Get()
+  @ApiOperation({ summary: 'Get all trips with pagination' })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number for pagination', example: '1' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Number of items per page', example: '10' })
+  @ApiQuery({ name: 'status', required: false, description: 'Filter trips by status' })
+  @ApiResponse({ status: 200, description: 'List of trips retrieved successfully.' })
   async findAll(
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '10',
@@ -24,6 +34,8 @@ export class TripsController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get trip by ID' })
+  @ApiResponse({ status: 200, description: 'Trip retrieved successfully.' })
   async findOne(@Param('id') id: string, @Req() req) {
     return this.tripsService.findById(id, req.user.id);
   }
@@ -35,21 +47,31 @@ export class TripsController {
   // }
 
   @Get('date/:date')
+  @ApiOperation({ summary: 'Get trips by date' })
+  @ApiResponse({ status: 200, description: 'Trips for the specified date retrieved successfully.' })
   async findByDate(@Param('date') date: string, @Req() req) {
     return this.tripsService.findByDate(date, req.user.id);
   }
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Update a trip' })
+  @ApiBody({ type: UpdateTripDto })
+  @ApiResponse({ status: 200, description: 'The trip has been successfully updated.' })
   update(@Param('id') id: string, @Body() dto: UpdateTripDto, @Req() req) {
     return this.tripsService.update(id, req.user.id, dto);
   }
 
   @Patch(':id/resubmit')
+  @ApiOperation({ summary: 'Resubmit a trip' })
+  @ApiBody({ type: UpdateTripDto })
+  @ApiResponse({ status: 200, description: 'The trip has been successfully resubmitted.' })
   resubmit(@Param('id') id: string, @Body() dto: UpdateTripDto, @Req() req) {
     return this.tripsService.resubmit(id, req.user.id, dto);
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Delete a trip' })
+  @ApiResponse({ status: 200, description: 'The trip has been successfully deleted.' })
   remove(@Param('id') id: string, @Req() req) {
     return this.tripsService.delete(id, req.user.id);
   }
