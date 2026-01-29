@@ -44,15 +44,7 @@ const monthName = computed(() =>
 
 const daysOfWeek = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
-const dayDecorations: Record<number, DayDecor> = {
-  1: { tone: "lavender" },
-  9: { tone: "sand" },
-  11: { tone: "sky" },
-  13: { tone: "rose" },
-  17: { tone: "lavender" },
-  21: { tone: "sky" },
-  30: { tone: "rose" },
-};
+const dayDecorations: Record<number, DayDecor> = {};
 
 const today = new Date();
 today.setHours(0, 0, 0, 0);
@@ -164,6 +156,7 @@ const cells = computed(() => {
     isBookable: boolean;
     tripSummary?: string;
     tripCount?: number;
+    hasApprovedTrips?: boolean;
   }[] = [];
   for (let i = 0; i < totalCells; i++) {
     const dayNum = i - start + 1;
@@ -186,11 +179,21 @@ const cells = computed(() => {
 
     const date = new Date(cellYear, cellMonth - 1, day);
     const isBookable = inMonth && date >= today;
-    const decor = inMonth ? dayDecorations[day] : undefined;
     const tripKey = toDateKeyFromDate(date);
     const dayTrips = tripsByDate.value[tripKey] ?? [];
+    const hasApprovedTrips = dayTrips.length > 0;
+    const decor = inMonth ? dayDecorations[day] : undefined;
     const tripSummary = summarizeTrips(dayTrips);
-    arr.push({ day, inMonth, decor, date, isBookable, tripSummary, tripCount: dayTrips.length });
+    arr.push({
+      day,
+      inMonth,
+      decor,
+      date,
+      isBookable,
+      tripSummary,
+      tripCount: dayTrips.length,
+      hasApprovedTrips,
+    });
   }
   return arr;
 });
@@ -488,6 +491,7 @@ async function submitBooking() {
             :class="[
               c.inMonth ? 'in-month' : 'out-month',
               c.decor?.tone ? `tone-${c.decor.tone}` : '',
+              c.hasApprovedTrips ? 'has-approved' : '',
               c.isBookable ? 'is-bookable' : 'is-readonly',
               selectedDateKey && formatIsoDate(c.date) === selectedDateKey ? 'is-selected' : '',
             ]"
@@ -842,8 +846,10 @@ async function submitBooking() {
   border-radius: 999px;
   padding: 2px 6px;
   font-size: 10px;
-  background: #efe7df;
+  background: #ffffff;
   color: #3c3a37;
+  border: 1px solid #e6d8c9;
+  box-shadow: 0 4px 8px rgba(60, 58, 55, 0.12);
 }
 
 .tone-lavender {
@@ -860,6 +866,10 @@ async function submitBooking() {
 
 .tone-rose {
   background: var(--tone-rose);
+}
+
+.has-approved {
+  background: #f3e1c6;
 }
 
 .meta-card {

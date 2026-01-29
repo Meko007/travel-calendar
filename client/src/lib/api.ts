@@ -133,6 +133,23 @@ export type AdminTrip = {
   };
 };
 
+export type User = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: "USER" | "ADMIN";
+  mustChangePassword: boolean;
+  createdAt: string;
+};
+
+export type UsersResponse = {
+  data: User[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
 export async function fetchTrips(params?: {
   status?: TripStatus;
   page?: number;
@@ -159,6 +176,19 @@ export async function fetchAdminTrips(params?: {
   return response.data as AdminTrip[];
 }
 
+export async function fetchUsers(params?: {
+  search?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const searchParams = new URLSearchParams();
+  if (params?.search) searchParams.set("search", params.search);
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  const response = await apiClient.get(`/admin/users?${searchParams.toString()}`);
+  return response.data as UsersResponse;
+}
+
 export async function approveTrip(id: string) {
   const response = await apiClient.patch(`/admin/trips/${id}/approve`);
   return response.data as AdminTrip;
@@ -167,6 +197,13 @@ export async function approveTrip(id: string) {
 export async function rejectTrip(id: string, reason: string) {
   const response = await apiClient.patch(`/admin/trips/${id}/reject`, { reason });
   return response.data as AdminTrip;
+}
+
+export async function setTemporaryPassword(userId: string, temporaryPassword: string) {
+  const response = await apiClient.patch(`/admin/users/${userId}/temporary-password`, {
+    temporaryPassword,
+  });
+  return response.data;
 }
 
 export type UserNotification = {
