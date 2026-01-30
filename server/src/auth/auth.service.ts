@@ -75,7 +75,7 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, context?: AuditContext) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -84,13 +84,26 @@ export class AuthService {
       throw new ConflictException('Invalid email or password');
     }
 
+    if (!user.isActive) {
+      throw new UnauthorizedException('User account is deactivated');
+    }
+
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     const hashedRefreshToken = await bcrypt.hash(tokens.refreshToken, 10);
 
-    await this.prisma.user.update({
+    const updatedUser = await this.prisma.user.update({
       where: { id: user.id },
       data: { refreshToken: hashedRefreshToken },
     });
+
+    await this.audit.log({
+      userId: user.id,
+      entityType: AuditEntity.USER,
+      entityId: user.id,
+      action: user.role === 'ADMIN' ? AuditAction.ADMIN_LOGIN : AuditAction.USER_LOGIN,
+      before: user,
+      after: updatedUser,
+    }, context);
 
     return {
       message: 'Login successful',
@@ -106,42 +119,51 @@ export class AuthService {
     }
   }
 
-  async adminLogin(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-    });
+  // async adminLogin(dto: LoginDto, context?: AuditContext) {
+  //   const user = await this.prisma.user.findUnique({
+  //     where: { email: dto.email },
+  //   });
 
-    if (!user || !(await bcrypt.compare(dto.password, user.password))) {
-      throw new ConflictException('Invalid email or password');
-    }
+  //   if (!user || !(await bcrypt.compare(dto.password, user.password))) {
+  //     throw new ConflictException('Invalid email or password');
+  //   }
 
-    if (user.role !== 'ADMIN') {
-      throw new UnauthorizedException('Access denied: Admins only');
-    }
+  //   if (user.role !== 'ADMIN') {
+  //     throw new UnauthorizedException('Access denied: Admins only');
+  //   }
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
-    const hashedRefreshToken = await bcrypt.hash(tokens.refreshToken, 10);
+  //   const tokens = await this.generateTokens(user.id, user.email, user.role);
+  //   const hashedRefreshToken = await bcrypt.hash(tokens.refreshToken, 10);
 
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { refreshToken: hashedRefreshToken },
-    });
+  //   const updatedUser = await this.prisma.user.update({
+  //     where: { id: user.id },
+  //     data: { refreshToken: hashedRefreshToken },
+  //   });
 
-    return {
-      message: 'Login successful',
-      ...tokens,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        mustChangePassword: user.mustChangePassword,
-      },
-    }
-  }
+  //   await this.audit.log({
+  //     userId: user.id,
+  //     entityType: AuditEntity.USER,
+  //     entityId: user.id,
+  //     action: AuditAction.ADMIN_LOGIN,
+  //     before: user,
+  //     after: updatedUser,
+  //   }, context);
 
-  async refreshTokens(dto: RefreshTokenDto) {
+  //   return {
+  //     message: 'Login successful',
+  //     ...tokens,
+  //     user: {
+  //       id: user.id,
+  //       email: user.email,
+  //       firstName: user.firstName,
+  //       lastName: user.lastName,
+  //       role: user.role,
+  //       mustChangePassword: user.mustChangePassword,
+  //     },
+  //   }
+  // }
+
+  async refreshTokens(dto: RefreshTokenDto, context?: AuditContext) {
     const { refreshToken } = dto;
     
     if (!refreshToken) {
@@ -178,10 +200,19 @@ export class AuthService {
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     const hashedRefreshToken = await bcrypt.hash(tokens.refreshToken, 10);
 
-    await this.prisma.user.update({
+    const updatedUser = await this.prisma.user.update({
       where: { id: user.id },
       data: { refreshToken: hashedRefreshToken },
     });
+
+    await this.audit.log({
+      userId: user.id,
+      entityType: AuditEntity.USER,
+      entityId: user.id,
+      action: AuditAction.USER_TOKEN_REFRESHED,
+      before: user,
+      after: updatedUser,
+    }, context);
 
     return {
       message: 'Token refreshed successfully',
@@ -209,7 +240,12 @@ export class AuthService {
     return { user };
   }
 
-  async changePassword(userId: string, oldPassword: string, newPassword: string) {
+  async changePassword(
+    userId: string,
+    oldPassword: string,
+    newPassword: string,
+    context?: AuditContext,
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -220,7 +256,7 @@ export class AuthService {
       throw new BadRequestException('New password must be different from the current password');
     }
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-    await this.prisma.user.update({
+    const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: { 
         password: hashedNewPassword,
@@ -228,6 +264,15 @@ export class AuthService {
         refreshToken: null,
       },
     });
+
+    await this.audit.log({
+      userId,
+      entityType: AuditEntity.USER,
+      entityId: userId,
+      action: AuditAction.USER_PASSWORD_CHANGED,
+      before: user,
+      after: updatedUser,
+    }, context);
     return { message: 'Password changed successfully' };
   }
 

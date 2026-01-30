@@ -43,22 +43,22 @@ export class AuthController {
   @ApiBody({ type: LoginDto })
   @ApiResponse({ status: 200, description: 'User hassuccessfully logged in.' })
   @HttpCode(HttpStatus.OK)
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res) {
-    const { refreshToken, ...result } = await this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Req() req, @Res({ passthrough: true }) res) {
+    const { refreshToken, ...result } = await this.authService.login(dto, buildAuditContext(req));
     this.setRefreshCookie(res, refreshToken);
     return result;
   }
 
-  @Post('admin/login')
-  @ApiOperation({ summary: 'Admin login '})
-  @ApiBody({ type: LoginDto })
-  @ApiResponse({ status: 200, description: 'Admin has successfully logged in.' })
-  @HttpCode(HttpStatus.OK)
-  async adminLogin(@Body() dto: LoginDto, @Res({ passthrough: true }) res) {
-    const { refreshToken, ...result } = await this.authService.adminLogin(dto);
-    this.setRefreshCookie(res, refreshToken);
-    return result;
-  }
+  // @Post('admin/login')
+  // @ApiOperation({ summary: 'Admin login '})
+  // @ApiBody({ type: LoginDto })
+  // @ApiResponse({ status: 200, description: 'Admin has successfully logged in.' })
+  // @HttpCode(HttpStatus.OK)
+  // async adminLogin(@Body() dto: LoginDto, @Req() req, @Res({ passthrough: true }) res) {
+  //   const { refreshToken, ...result } = await this.authService.adminLogin(dto, buildAuditContext(req));
+  //   this.setRefreshCookie(res, refreshToken);
+  //   return result;
+  // }
 
   @Post('refresh')
   @ApiOperation({ summary: 'Refresh tokens '})
@@ -67,7 +67,7 @@ export class AuthController {
   async refresh(@Req() req, @Res({ passthrough: true }) res) {
     const refreshToken = req.cookies?.refreshToken as string;
     const { refreshToken: newRefreshToken, ...result } =
-      await this.authService.refreshTokens({ refreshToken });
+      await this.authService.refreshTokens({ refreshToken }, buildAuditContext(req));
     this.setRefreshCookie(res, newRefreshToken);
     return result;
   }
@@ -80,7 +80,12 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Password has been successfully changed.' })
   @HttpCode(HttpStatus.OK)
   changePassword(@Req() req, @Body() dto: ChangePasswordDto) {
-    return this.authService.changePassword(req.user.id, dto.oldPassword, dto.newPassword);
+    return this.authService.changePassword(
+      req.user.id,
+      dto.oldPassword,
+      dto.newPassword,
+      buildAuditContext(req),
+    );
   }
 
   @UseGuards(JwtAuthGuard)

@@ -2,6 +2,8 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Req, Query, UseGuard
 import { TripsService } from './trips.service';
 import { CreateTripDto, UpdateTripDto } from './dto/trips.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth/jwt-auth.guard';
+import { buildAuditContext } from '../common/audit/audit.utils';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 @Controller('trips')
 @UseGuards(JwtAuthGuard)

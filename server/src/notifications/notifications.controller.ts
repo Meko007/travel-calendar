@@ -42,6 +42,6 @@ export class NotificationsController {
   @ApiOperation({ summary: 'Delete Notification' })
   @ApiResponse({ status: 200, description: 'Notification deleted successfully.' })
   delete(@Param('id') id: string, @Req() req) {
-    return this.notificationsService.delete(id, req.user.id);
+    return this.notificationsService.delete(id, req.user.id, buildAuditContext(req));
   }
 }

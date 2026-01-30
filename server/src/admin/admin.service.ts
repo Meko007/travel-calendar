@@ -193,4 +193,29 @@ export class AdminService {
     return { message: 'Temporary password set successfully' };
   }
 
+  async deactivateUser(userId: string, adminUserId?: string, context?: AuditContext) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (!user.isActive) {
+      throw new BadRequestException('User is already deactivated');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { isActive: false, refreshToken: null },
+    });
+
+    await this.audit.log({
+      userId: adminUserId ?? null,
+      entityType: AuditEntity.USER,
+      entityId: userId,
+      action: AuditAction.USER_DEACTIVATED,
+      before: user,
+      after: updated,
+    }, context);
+
+  }
+
 }

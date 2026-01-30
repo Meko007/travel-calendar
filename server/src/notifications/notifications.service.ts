@@ -54,7 +54,7 @@ export class NotificationsService {
     return updated;
   }
 
-  async delete(id: string, userId: string) {
+  async delete(id: string, userId: string, context?: AuditContext) {
     const existing = await this.prisma.notification.findUnique({
       where: { id },
     });
@@ -63,8 +63,19 @@ export class NotificationsService {
       throw new NotFoundException('Notification not found');
     }
 
-    return this.prisma.notification.delete({
+    const deleted = await this.prisma.notification.delete({
       where: { id },
     });
+
+    await this.audit.log({
+      userId,
+      entityType: AuditEntity.NOTIFICATION,
+      entityId: deleted.id,
+      action: AuditAction.NOTIFICATION_DELETED,
+      before: existing,
+      after: null,
+    }, context);
+
+    return deleted;
   }
 }

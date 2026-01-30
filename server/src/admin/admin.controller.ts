@@ -65,4 +65,11 @@ export class AdminController {
   setTemporaryPassword(@Param('id') userId: string, @Body() dto: SetTemporaryPasswordDto, @Req() req) {
     return this.adminService.setTemporaryPassword(userId, dto.temporaryPassword, req.user.id, buildAuditContext(req));
   }
+
+  @Patch('users/:id/deactivate')
+  @ApiOperation({ summary: 'Deactivate a user by ID' })
+  @ApiResponse({ status: 200, description: 'User deactivated successfully.' })
+  deactivateUser(@Param('id') userId: string, @Req() req) {
+    return this.adminService.deactivateUser(userId, req.user.id, buildAuditContext(req));
+  }
 }

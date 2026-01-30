@@ -1,7 +1,6 @@
 export type AuditContext = {
   ip?: string;
   userAgent?: string;
-  environment?: string;
 };
 
 export type AuditLogInput = {
@@ -13,6 +12,5 @@ export type AuditLogInput = {
   after?: unknown | null;
   diff?: unknown | null;
   ip?: string | null;
-  environment?: string | null;
   userAgent?: string | null;
 };

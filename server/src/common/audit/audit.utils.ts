@@ -7,6 +7,9 @@ const SENSITIVE_KEYS = new Set([
   'accessToken',
   'access_token',
   'token',
+  'temporaryPassword',
+  'oldPassword',
+  'newPassword',
 ]);
 
 export function buildAuditContext(req: Request) {
