@@ -27,6 +27,7 @@ type RetriableConfig = AxiosRequestConfig & { _retry?: boolean };
 
 let refreshPromise: Promise<string | null> | null = null;
 let refreshDisabled = false;
+let authInvalidHandler: (() => void) | null = null;
 
 export function disableAuthRefresh() {
   refreshDisabled = true;
@@ -34,6 +35,14 @@ export function disableAuthRefresh() {
 
 export function enableAuthRefresh() {
   refreshDisabled = false;
+}
+
+export function setAuthInvalidHandler(handler: (() => void) | null) {
+  authInvalidHandler = handler;
+}
+
+function notifyAuthInvalid() {
+  authInvalidHandler?.();
 }
 
 async function refreshAccessToken(): Promise<string | null> {
@@ -78,6 +87,7 @@ apiClient.interceptors.response.use(
     if (!newToken || refreshDisabled) {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('authUser');
+      notifyAuthInvalid();
       return Promise.reject(error);
     }
 
@@ -140,6 +150,7 @@ export type User = {
   email: string;
   role: "USER" | "ADMIN";
   mustChangePassword: boolean;
+  isActive: boolean;
   createdAt: string;
 };
 
@@ -206,6 +217,16 @@ export async function setTemporaryPassword(userId: string, temporaryPassword: st
   return response.data;
 }
 
+export async function deactivateUser(userId: string) {
+  const response = await apiClient.patch(`/admin/users/${userId}/deactivate`);
+  return response.data;
+}
+
+export async function activateUser(userId: string) {
+  const response = await apiClient.patch(`/admin/users/${userId}/activate`);
+  return response.data;
+}
+
 export type UserNotification = {
   id: string;
   tripId: string;
@@ -241,6 +262,11 @@ export async function fetchUserNotifications(params?: {
 
 export async function markNotificationRead(id: string) {
   const response = await apiClient.patch(`/notifications/${id}/read`);
+  return response.data as UserNotification;
+}
+
+export async function deleteNotification(id: string) {
+  const response = await apiClient.delete(`/notifications/${id}`);
   return response.data as UserNotification;
 }
 

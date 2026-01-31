@@ -71,7 +71,12 @@ export const useAuthStore = defineStore("auth", {
         }
         return data;
       } catch (e: any) {
-        this.error = e?.response?.data?.message ?? e?.message ?? "Login failed";
+        const serverMessage = e?.response?.data?.message ?? e?.message ?? "Login failed";
+        if (serverMessage === "User account is deactivated") {
+          this.error = "User account is deactivated. Contact administrator.";
+        } else {
+          this.error = serverMessage;
+        }
         throw e;
       } finally {
         this.loading = false;
