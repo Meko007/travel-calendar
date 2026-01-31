@@ -3,7 +3,7 @@ import { TripsService } from './trips.service';
 import { CreateTripDto, UpdateTripDto } from './dto/trips.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth/jwt-auth.guard';
 import { buildAuditContext } from '../common/audit/audit.utils';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 @Controller('trips')
 @UseGuards(JwtAuthGuard)
@@ -37,6 +37,7 @@ export class TripsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get trip by ID' })
+  @ApiParam({ name: 'id', description: 'ID of the trip to retrieve' })
   @ApiResponse({ status: 200, description: 'Trip retrieved successfully.' })
   async findOne(@Param('id') id: string, @Req() req) {
     return this.tripsService.findById(id, req.user.id);
@@ -50,6 +51,7 @@ export class TripsController {
 
   @Get('date/:date')
   @ApiOperation({ summary: 'Get trips by date' })
+  @ApiParam({ name: 'date', description: 'Date to filter trips (YYYY-MM-DD)' })
   @ApiResponse({ status: 200, description: 'Trips for the specified date retrieved successfully.' })
   async findByDate(@Param('date') date: string, @Req() req) {
     return this.tripsService.findByDate(date, req.user.id);
@@ -57,6 +59,7 @@ export class TripsController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a trip' })
+  @ApiParam({ name: 'id', description: 'ID of the trip to update' })
   @ApiBody({ type: UpdateTripDto })
   @ApiResponse({ status: 200, description: 'The trip has been successfully updated.' })
   update(@Param('id') id: string, @Body() dto: UpdateTripDto, @Req() req) {
@@ -65,6 +68,7 @@ export class TripsController {
 
   @Patch(':id/resubmit')
   @ApiOperation({ summary: 'Resubmit a trip' })
+  @ApiParam({ name: 'id', description: 'ID of the trip to resubmit' })
   @ApiBody({ type: UpdateTripDto })
   @ApiResponse({ status: 200, description: 'The trip has been successfully resubmitted.' })
   resubmit(@Param('id') id: string, @Body() dto: UpdateTripDto, @Req() req) {
@@ -73,6 +77,7 @@ export class TripsController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a trip' })
+  @ApiParam({ name: 'id', description: 'ID of the trip to delete' })
   @ApiResponse({ status: 200, description: 'The trip has been successfully deleted.' })
   remove(@Param('id') id: string, @Req() req) {
     return this.tripsService.delete(id, req.user.id, buildAuditContext(req));

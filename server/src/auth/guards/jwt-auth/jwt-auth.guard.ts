@@ -48,10 +48,13 @@ export class JwtAuthGuard implements CanActivate {
       console.log('JWT Guard - Decoded token:', { sub: decoded.sub, email: decoded.email });
       const user = await this.prisma.user.findUnique({
         where: { id: decoded.sub },
-        select: { mustChangePassword: true },
+        select: { mustChangePassword: true, isActive: true },
       });
       if (!user) {
         throw new UnauthorizedException('User not found');
+      }
+      if (!user.isActive) {
+        throw new UnauthorizedException('User account is deactivated');
       }
       if (user.mustChangePassword && !this.isPasswordChangeRoute(req)) {
         throw new ForbiddenException('Password change required');

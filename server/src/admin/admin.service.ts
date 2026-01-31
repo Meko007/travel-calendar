@@ -51,6 +51,7 @@ export class AdminService {
           lastName: true,
           role: true,
           mustChangePassword: true,
+          isActive: true,
           createdAt: true,
         },
         orderBy: { createdAt: 'desc' },
@@ -216,6 +217,33 @@ export class AdminService {
       after: updated,
     }, context);
 
+    return updated;
+  }
+
+  async activateUser(userId: string, adminUserId?: string, context?: AuditContext) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.isActive) {
+      throw new BadRequestException('User is already activated');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { isActive: true, refreshToken: null },
+    });
+
+    await this.audit.log({
+      userId: adminUserId ?? null,
+      entityType: AuditEntity.USER,
+      entityId: userId,
+      action: AuditAction.USER_ACTIVATED,
+      before: user,
+      after: updated,
+    }, context);
+
+    return updated;
   }
 
 }

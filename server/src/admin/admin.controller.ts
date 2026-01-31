@@ -7,7 +7,7 @@ import { Role } from '@prisma/client';
 import { RejectTripDto } from './dto/reject-trip.dto';
 import { buildAuditContext } from '../common/audit/audit.utils';
 import { SetTemporaryPasswordDto } from './dto/set-temporary-password.dto';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -47,6 +47,7 @@ export class AdminController {
 
   @Patch('trips/:id/approve')
   @ApiOperation({ summary: 'Approve a trip by ID' })
+  @ApiParam({ name: 'id', description: 'ID of the trip to approve' })
   @ApiResponse({ status: 200, description: 'Trip approved successfully.' })
   approveTrip(@Param('id') id: string, @Req() req) {
     return this.adminService.approveTrip(id, req.user.id, buildAuditContext(req));
@@ -54,6 +55,7 @@ export class AdminController {
 
   @Patch('trips/:id/reject')
   @ApiOperation({ summary: 'Reject a trip by ID with a reason' })
+  @ApiParam({ name: 'id', description: 'ID of the trip to reject' })
   @ApiResponse({ status: 200, description: 'Trip rejected successfully.' })
   rejectTrip(@Param('id') id: string, @Body() dto: RejectTripDto, @Req() req) {
     return this.adminService.rejectTrip(id, dto.reason, req.user.id, buildAuditContext(req));
@@ -61,6 +63,7 @@ export class AdminController {
 
   @Patch('users/:id/temporary-password')
   @ApiOperation({ summary: 'Set a temporary password for a user by ID' })
+  @ApiParam({ name: 'id', description: 'ID of the user to set the temporary password for' })
   @ApiResponse({ status: 200, description: 'Temporary password set successfully.' })
   setTemporaryPassword(@Param('id') userId: string, @Body() dto: SetTemporaryPasswordDto, @Req() req) {
     return this.adminService.setTemporaryPassword(userId, dto.temporaryPassword, req.user.id, buildAuditContext(req));
@@ -68,8 +71,17 @@ export class AdminController {
 
   @Patch('users/:id/deactivate')
   @ApiOperation({ summary: 'Deactivate a user by ID' })
+  @ApiParam({ name: 'id', description: 'ID of the user to deactivate' })
   @ApiResponse({ status: 200, description: 'User deactivated successfully.' })
   deactivateUser(@Param('id') userId: string, @Req() req) {
     return this.adminService.deactivateUser(userId, req.user.id, buildAuditContext(req));
+  }
+
+  @Patch('users/:id/activate')
+  @ApiOperation({ summary: 'Activate a user by ID' })
+  @ApiParam({ name: 'id', description: 'ID of the user to activate' })
+  @ApiResponse({ status: 200, description: 'User activated successfully.' })
+  activateUser(@Param('id') userId: string, @Req() req) {
+    return this.adminService.activateUser(userId, req.user.id, buildAuditContext(req));
   }
 }

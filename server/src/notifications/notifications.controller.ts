@@ -2,7 +2,7 @@ import { Controller, Delete, Get, Patch, Param, Query, Req, UseGuards } from '@n
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth/jwt-auth.guard';
 import { buildAuditContext } from '../common/audit/audit.utils';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
@@ -33,6 +33,7 @@ export class NotificationsController {
 
   @Patch(':id/read')
   @ApiOperation({ summary: 'Mark Notification as Read' })
+  @ApiParam({ name: 'id', description: 'ID of the notification to mark as read' })
   @ApiResponse({ status: 200, description: 'Notification marked as read successfully.' })
   markRead(@Param('id') id: string, @Req() req) {
     return this.notificationsService.markRead(id, req.user.id, buildAuditContext(req));
@@ -40,6 +41,7 @@ export class NotificationsController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete Notification' })
+  @ApiParam({ name: 'id', description: 'ID of the notification to delete' })
   @ApiResponse({ status: 200, description: 'Notification deleted successfully.' })
   delete(@Param('id') id: string, @Req() req) {
     return this.notificationsService.delete(id, req.user.id, buildAuditContext(req));
