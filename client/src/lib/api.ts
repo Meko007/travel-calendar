@@ -1,4 +1,4 @@
-import axios, { type AxiosError, type AxiosRequestConfig } from 'axios';
+import axios, { type AxiosError, type AxiosRequestConfig } from "axios";
 
 // const defaultBaseUrl = '/api'
 export const baseURL = import.meta.env.VITE_API_URL;
@@ -15,7 +15,7 @@ const refreshClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  const accessToken = localStorage.getItem('accessToken');
+  const accessToken = localStorage.getItem("accessToken");
   if (accessToken) {
     config.headers = config.headers ?? {};
     config.headers.Authorization = `Bearer ${accessToken}`;
@@ -51,7 +51,7 @@ async function refreshAccessToken(): Promise<string | null> {
   }
   if (!refreshPromise) {
     refreshPromise = refreshClient
-      .post('/auth/refresh')
+      .post("/auth/refresh")
       .then((response) => response.data?.accessToken ?? null)
       .catch(() => null)
       .finally(() => {
@@ -72,12 +72,12 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const url = originalRequest.url ?? '';
+    const url = originalRequest.url ?? "";
     if (
       originalRequest._retry ||
-      url.includes('/auth/refresh') ||
-      url.includes('/auth/login') ||
-      url.includes('/auth/signup')
+      url.includes("/auth/refresh") ||
+      url.includes("/auth/login") ||
+      url.includes("/auth/signup")
     ) {
       return Promise.reject(error);
     }
@@ -85,13 +85,13 @@ apiClient.interceptors.response.use(
     originalRequest._retry = true;
     const newToken = await refreshAccessToken();
     if (!newToken || refreshDisabled) {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('authUser');
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("authUser");
       notifyAuthInvalid();
       return Promise.reject(error);
     }
 
-    localStorage.setItem('accessToken', newToken);
+    localStorage.setItem("accessToken", newToken);
     originalRequest.headers = originalRequest.headers ?? {};
     originalRequest.headers.Authorization = `Bearer ${newToken}`;
 
@@ -108,7 +108,7 @@ export type CreateTripPayload = {
 };
 
 export async function createTrip(payload: CreateTripPayload) {
-  const response = await apiClient.post('/trips', payload);
+  const response = await apiClient.post("/trips", payload);
   return response.data;
 }
 
