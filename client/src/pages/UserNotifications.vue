@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
-import { fetchUserNotifications, markNotificationRead, type UserNotification } from "../lib/api";
+import {
+  deleteNotification,
+  fetchUserNotifications,
+  markNotificationRead,
+  type UserNotification,
+} from "../lib/api";
 
 const loading = ref(true);
 const error = ref("");
 const notifications = ref<UserNotification[]>([]);
+const deletingId = ref<string | null>(null);
 
 function formatDate(dateStr: string) {
   const date = new Date(dateStr);
@@ -56,6 +62,22 @@ async function handleRead(note: UserNotification) {
   } catch (err) {
     note.readAt = previousReadAt ?? null;
     error.value = err instanceof Error ? err.message : "Failed to mark as read.";
+  }
+}
+
+async function handleDelete(note: UserNotification) {
+  if (!window.confirm("Delete this notification?")) {
+    return;
+  }
+  deletingId.value = note.id;
+  error.value = "";
+  try {
+    await withTimeout(deleteNotification(note.id), 8000);
+    notifications.value = notifications.value.filter((item) => item.id !== note.id);
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : "Failed to delete notification.";
+  } finally {
+    deletingId.value = null;
   }
 }
 
@@ -118,6 +140,14 @@ onMounted(loadNotifications);
             @click="handleRead(note)"
           >
             {{ note.readAt ? "Read" : "Mark read" }}
+          </button>
+          <button
+            class="ghost-button danger-button"
+            type="button"
+            :disabled="deletingId === note.id"
+            @click="handleDelete(note)"
+          >
+            {{ deletingId === note.id ? "Deleting..." : "Delete" }}
           </button>
           <RouterLink
             v-if="note.type === 'TRIP_REJECTED'"
@@ -192,6 +222,16 @@ onMounted(loadNotifications);
   background: transparent;
   border-color: #d7cec6;
   color: #5b5149;
+}
+
+.danger-button {
+  border-color: #e1b8b8;
+  color: #b24c4c;
+}
+
+.danger-button:hover {
+  border-color: #c98f8f;
+  color: #8f2d2d;
 }
 
 .notify-list {

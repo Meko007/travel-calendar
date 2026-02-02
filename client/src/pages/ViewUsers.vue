@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { RouterLink } from "vue-router";
-import { fetchUsers, setTemporaryPassword, type User } from "../lib/api";
+import { RouterLink, useRouter } from "vue-router";
+import { activateUser, deactivateUser, fetchUsers, setTemporaryPassword, type User } from "../lib/api";
+import { useAuthStore } from "../stores/auth";
 
 const users = ref<User[]>([]);
 const loading = ref(true);
@@ -12,6 +13,8 @@ const limit = 20;
 const total = ref(0);
 const isSearching = ref(false);
 let searchTimer: number | undefined;
+const router = useRouter();
+const auth = useAuthStore();
 
 const activeUserId = ref<string | null>(null);
 const tempPassword = ref("");
@@ -19,6 +22,10 @@ const showTempPassword = ref(false);
 const tempSubmitting = ref(false);
 const tempMessage = ref("");
 const tempMessageType = ref<"success" | "error" | "">("");
+const statusTargetId = ref<string | null>(null);
+const statusSubmitting = ref(false);
+const statusMessage = ref("");
+const statusMessageType = ref<"success" | "error" | "">("");
 let searchRequestId = 0;
 
 const hasMore = computed(() => users.value.length < total.value);
@@ -69,6 +76,12 @@ function resetTempPanel() {
   tempMessageType.value = "";
 }
 
+function resetStatusState() {
+  statusTargetId.value = null;
+  statusMessage.value = "";
+  statusMessageType.value = "";
+}
+
 async function searchUsers() {
   const requestId = ++searchRequestId;
   isSearching.value = true;
@@ -101,6 +114,7 @@ function handleSearch() {
     clearTimeout(searchTimer);
   }
   resetTempPanel();
+  resetStatusState();
   page.value = 1;
   searchUsers();
 }
@@ -123,6 +137,47 @@ function toggleTempPanel(userId: string) {
   showTempPassword.value = false;
   tempMessage.value = "";
   tempMessageType.value = "";
+}
+
+async function handleToggleActive(userId: string) {
+  const target = users.value.find((item) => item.id === userId);
+  if (!target) return;
+  resetTempPanel();
+  const isDeactivating = target.isActive;
+  const confirmMessage = isDeactivating
+    ? "Deactivate this user? They will be logged out and cannot sign in."
+    : "Activate this user? They will be able to sign in again.";
+  if (!window.confirm(confirmMessage)) {
+    return;
+  }
+  statusSubmitting.value = true;
+  statusTargetId.value = userId;
+  statusMessage.value = "";
+  statusMessageType.value = "";
+  try {
+    if (isDeactivating) {
+      await deactivateUser(userId);
+    } else {
+      await activateUser(userId);
+    }
+    const index = users.value.findIndex((item) => item.id === userId);
+    if (index >= 0) {
+      users.value[index] = { ...users.value[index], isActive: !isDeactivating } as User;
+    }
+    statusMessage.value = isDeactivating
+      ? "User deactivated successfully."
+      : "User activated successfully.";
+    statusMessageType.value = "success";
+    if (isDeactivating && auth.user?.id === userId) {
+      auth.logout();
+      router.push("/login");
+    }
+  } catch (err) {
+    statusMessage.value = err instanceof Error ? err.message : "Failed to update user status.";
+    statusMessageType.value = "error";
+  } finally {
+    statusSubmitting.value = false;
+  }
 }
 
 async function handleSetTemporaryPassword() {
@@ -167,6 +222,7 @@ onMounted(() => loadUsers(true));
 
 watch(search, () => {
   resetTempPanel();
+  resetStatusState();
   if (searchTimer !== undefined) {
     clearTimeout(searchTimer);
   }
@@ -236,13 +292,40 @@ watch(search, () => {
         </div>
         <div class="user-meta">
           <span class="role-pill">{{ user.role }}</span>
+          <span class="status-pill" :class="user.isActive ? 'is-active' : 'is-inactive'">
+            {{ user.isActive ? "Active" : "Deactivated" }}
+          </span>
           <span v-if="user.mustChangePassword" class="flag-pill">Must change</span>
         </div>
         <div class="user-actions">
           <button class="ghost-button" @click="toggleTempPanel(user.id)">
             {{ activeUserId === user.id ? "Close" : "Set temp password" }}
           </button>
+          <button
+            class="ghost-button"
+            :class="user.isActive ? 'danger-button' : 'success-button'"
+            :disabled="statusSubmitting && statusTargetId === user.id"
+            @click="handleToggleActive(user.id)"
+          >
+            {{
+              statusSubmitting && statusTargetId === user.id
+                ? user.isActive
+                  ? "Deactivating..."
+                  : "Activating..."
+                : user.isActive
+                  ? "Deactivate"
+                  : "Activate"
+            }}
+          </button>
         </div>
+
+        <p
+          v-if="statusTargetId === user.id && statusMessage"
+          class="temp-message"
+          :class="`message-${statusMessageType}`"
+        >
+          {{ statusMessage }}
+        </p>
 
         <div v-if="activeUserId === user.id" class="temp-panel">
           <label class="temp-label">
@@ -344,6 +427,26 @@ watch(search, () => {
   background: transparent;
   border-color: #d7cec6;
   color: #5b5149;
+}
+
+.danger-button {
+  border-color: #e1b8b8;
+  color: #b24c4c;
+}
+
+.danger-button:hover {
+  border-color: #c98f8f;
+  color: #8f2d2d;
+}
+
+.success-button {
+  border-color: #cfe3d2;
+  color: #2e3c2f;
+}
+
+.success-button:hover {
+  border-color: #9fc7a6;
+  color: #1f2c20;
 }
 
 .user-filters {
@@ -468,6 +571,28 @@ watch(search, () => {
   text-transform: uppercase;
   border: 1px solid #d7cec6;
   color: #7a6d63;
+}
+
+.status-pill {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid #d7cec6;
+  color: #7a6d63;
+}
+
+.status-pill.is-active {
+  background: #edf5ee;
+  color: #2e3c2f;
+  border-color: #cfe3d2;
+}
+
+.status-pill.is-inactive {
+  background: #f1d6d6;
+  color: #6b2d2d;
+  border-color: #e1b8b8;
 }
 
 .flag-pill {

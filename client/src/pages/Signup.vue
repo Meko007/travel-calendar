@@ -31,7 +31,7 @@ const submit = async () => {
     email: email.value.trim(),
     password: password.value,
   });
-  router.push("/calendar");
+  router.push("/login");
 };
 </script>
 
@@ -43,28 +43,29 @@ const submit = async () => {
 
       <form class="mt-6 space-y-4" @submit.prevent="submit">
         <div>
-          <label class="text-sm font-medium">First Name</label>
-          <input v-model="firstName" type="text"
+          <label class="text-sm font-medium" for="signup-first-name">First Name</label>
+          <input id="signup-first-name" v-model="firstName" type="text"
             class="mt-1 w-full rounded-xl border px-3 py-2 outline-none focus:ring" />
         </div>
 
         <div>
-          <label class="text-sm font-medium">Last Name</label>
-          <input v-model="lastName" type="text"
+          <label class="text-sm font-medium" for="signup-last-name">Last Name</label>
+          <input id="signup-last-name" v-model="lastName" type="text"
             class="mt-1 w-full rounded-xl border px-3 py-2 outline-none focus:ring" />
         </div>
 
         <div>
-          <label class="text-sm font-medium">Email</label>
-          <input v-model="email" type="email" required
+          <label class="text-sm font-medium" for="signup-email">Email</label>
+          <input id="signup-email" v-model="email" type="email" required
             class="mt-1 w-full rounded-xl border px-3 py-2 outline-none focus:ring" />
         </div>
 
         <div>
-          <label class="text-sm font-medium">Password</label>
+          <label class="text-sm font-medium" for="signup-password">Password</label>
           <div class="relative">
             <input
               v-model="password"
+              id="signup-password"
               :type="showPassword ? 'text' : 'password'"
               required
               minlength="8"
@@ -112,10 +113,11 @@ const submit = async () => {
         </div>
 
         <div>
-          <label class="text-sm font-medium">Confirm Password</label>
+          <label class="text-sm font-medium" for="signup-confirm-password">Confirm Password</label>
           <div class="relative">
             <input
               v-model="confirmPassword"
+              id="signup-confirm-password"
               :type="showConfirmPassword ? 'text' : 'password'"
               required
               minlength="8"

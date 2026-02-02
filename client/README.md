@@ -57,6 +57,26 @@ npm run preview
 
 The production build is written to `client/dist`.
 
+## Tests
+Unit and component tests use Vitest, E2E tests use Playwright.
+
+```bash
+# unit/component tests (watch)
+npm run test:unit
+
+# unit/component tests (single run)
+npm run test:unit:run
+
+# install Playwright browsers (first time only)
+npx playwright install
+
+# E2E tests (headless)
+npm run test:e2e
+
+# E2E tests with UI runner
+npm run test:e2e:ui
+```
+
 ## Routes
 - `/login`, `/signup`: authentication
 - `/calendar`: monthly travel calendar (users and admins)

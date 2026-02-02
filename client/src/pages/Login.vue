@@ -31,16 +31,17 @@ const submit = async () => {
 
       <form class="mt-6 space-y-4" @submit.prevent="submit">
         <div>
-          <label class="text-sm font-medium">Email</label>
-          <input v-model="email" type="email" required
+          <label class="text-sm font-medium" for="login-email">Email</label>
+          <input id="login-email" v-model="email" type="email" required
             class="mt-1 w-full rounded-xl border px-3 py-2 outline-none focus:ring" />
         </div>
 
         <div>
-          <label class="text-sm font-medium">Password</label>
+          <label class="text-sm font-medium" for="login-password">Password</label>
           <div class="relative">
             <input
               v-model="password"
+              id="login-password"
               :type="showPassword ? 'text' : 'password'"
               required
               class="mt-1 w-full rounded-xl border px-3 py-2 pr-20 outline-none focus:ring"

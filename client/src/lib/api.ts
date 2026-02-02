@@ -1,4 +1,4 @@
-import axios, { type AxiosError, type AxiosRequestConfig } from 'axios';
+import axios, { type AxiosError, type AxiosRequestConfig } from "axios";
 
 // const defaultBaseUrl = '/api'
 export const baseURL = import.meta.env.VITE_API_URL;
@@ -15,7 +15,7 @@ const refreshClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  const accessToken = localStorage.getItem('accessToken');
+  const accessToken = localStorage.getItem("accessToken");
   if (accessToken) {
     config.headers = config.headers ?? {};
     config.headers.Authorization = `Bearer ${accessToken}`;
@@ -27,6 +27,7 @@ type RetriableConfig = AxiosRequestConfig & { _retry?: boolean };
 
 let refreshPromise: Promise<string | null> | null = null;
 let refreshDisabled = false;
+let authInvalidHandler: (() => void) | null = null;
 
 export function disableAuthRefresh() {
   refreshDisabled = true;
@@ -36,13 +37,21 @@ export function enableAuthRefresh() {
   refreshDisabled = false;
 }
 
+export function setAuthInvalidHandler(handler: (() => void) | null) {
+  authInvalidHandler = handler;
+}
+
+function notifyAuthInvalid() {
+  authInvalidHandler?.();
+}
+
 async function refreshAccessToken(): Promise<string | null> {
   if (refreshDisabled) {
     return null;
   }
   if (!refreshPromise) {
     refreshPromise = refreshClient
-      .post('/auth/refresh')
+      .post("/auth/refresh")
       .then((response) => response.data?.accessToken ?? null)
       .catch(() => null)
       .finally(() => {
@@ -63,12 +72,12 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const url = originalRequest.url ?? '';
+    const url = originalRequest.url ?? "";
     if (
       originalRequest._retry ||
-      url.includes('/auth/refresh') ||
-      url.includes('/auth/login') ||
-      url.includes('/auth/signup')
+      url.includes("/auth/refresh") ||
+      url.includes("/auth/login") ||
+      url.includes("/auth/signup")
     ) {
       return Promise.reject(error);
     }
@@ -76,12 +85,13 @@ apiClient.interceptors.response.use(
     originalRequest._retry = true;
     const newToken = await refreshAccessToken();
     if (!newToken || refreshDisabled) {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('authUser');
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("authUser");
+      notifyAuthInvalid();
       return Promise.reject(error);
     }
 
-    localStorage.setItem('accessToken', newToken);
+    localStorage.setItem("accessToken", newToken);
     originalRequest.headers = originalRequest.headers ?? {};
     originalRequest.headers.Authorization = `Bearer ${newToken}`;
 
@@ -98,7 +108,7 @@ export type CreateTripPayload = {
 };
 
 export async function createTrip(payload: CreateTripPayload) {
-  const response = await apiClient.post('/trips', payload);
+  const response = await apiClient.post("/trips", payload);
   return response.data;
 }
 
@@ -140,6 +150,7 @@ export type User = {
   email: string;
   role: "USER" | "ADMIN";
   mustChangePassword: boolean;
+  isActive: boolean;
   createdAt: string;
 };
 
@@ -206,6 +217,16 @@ export async function setTemporaryPassword(userId: string, temporaryPassword: st
   return response.data;
 }
 
+export async function deactivateUser(userId: string) {
+  const response = await apiClient.patch(`/admin/users/${userId}/deactivate`);
+  return response.data;
+}
+
+export async function activateUser(userId: string) {
+  const response = await apiClient.patch(`/admin/users/${userId}/activate`);
+  return response.data;
+}
+
 export type UserNotification = {
   id: string;
   tripId: string;
@@ -241,6 +262,11 @@ export async function fetchUserNotifications(params?: {
 
 export async function markNotificationRead(id: string) {
   const response = await apiClient.patch(`/notifications/${id}/read`);
+  return response.data as UserNotification;
+}
+
+export async function deleteNotification(id: string) {
+  const response = await apiClient.delete(`/notifications/${id}`);
   return response.data as UserNotification;
 }
 
