@@ -67,9 +67,13 @@ describe("TripResubmit", () => {
     const departureLabel = screen.getByText(/departure time/i).closest("label") as HTMLElement | null;
     if (!departureLabel) throw new Error("Departure time label not found");
     const departureSelects = within(departureLabel).getAllByRole("combobox") as HTMLSelectElement[];
-    await fireEvent.update(departureSelects[0], "09");
-    await fireEvent.update(departureSelects[1], "00");
-    await fireEvent.update(departureSelects[2], "AM");
+    const [departureHour, departureMinute, departureMeridiem] = departureSelects;
+    if (!departureHour || !departureMinute || !departureMeridiem) {
+      throw new Error("Departure time selects not found");
+    }
+    await fireEvent.update(departureHour, "09");
+    await fireEvent.update(departureMinute, "00");
+    await fireEvent.update(departureMeridiem, "AM");
 
     const returnDateLabel = screen.getByText(/^return date$/i).closest("label") as HTMLElement | null;
     if (!returnDateLabel) throw new Error("Return date label not found");
@@ -80,9 +84,13 @@ describe("TripResubmit", () => {
     const returnLabel = screen.getByText(/return time/i).closest("label") as HTMLElement | null;
     if (!returnLabel) throw new Error("Return time label not found");
     const returnSelects = within(returnLabel).getAllByRole("combobox") as HTMLSelectElement[];
-    await fireEvent.update(returnSelects[0], "02");
-    await fireEvent.update(returnSelects[1], "30");
-    await fireEvent.update(returnSelects[2], "PM");
+    const [returnHour, returnMinute, returnMeridiem] = returnSelects;
+    if (!returnHour || !returnMinute || !returnMeridiem) {
+      throw new Error("Return time selects not found");
+    }
+    await fireEvent.update(returnHour, "02");
+    await fireEvent.update(returnMinute, "30");
+    await fireEvent.update(returnMeridiem, "PM");
 
     await fireEvent.click(screen.getByRole("button", { name: /resubmit/i }));
 
