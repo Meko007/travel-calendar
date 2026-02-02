@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { DbService } from '../common/db/db.service';
-import { AuditService } from '../common/audit/audit.service';
-import { AuditAction, AuditEntity } from '../common/audit/audit.constants';
-import type { AuditContext } from '../common/audit/audit.types';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { DbService } from "../common/db/db.service";
+import { AuditService } from "../common/audit/audit.service";
+import { AuditAction, AuditEntity } from "../common/audit/audit.constants";
+import type { AuditContext } from "../common/audit/audit.types";
 
 @Injectable()
 export class NotificationsService {
@@ -11,7 +11,12 @@ export class NotificationsService {
     private readonly audit: AuditService,
   ) {}
 
-  async list(userId: string, unreadOnly: boolean = false, page: number = 1, limit: number = 20) {
+  async list(
+    userId: string,
+    unreadOnly: boolean = false,
+    page: number = 1,
+    limit: number = 20,
+  ) {
     return this.prisma.notification.findMany({
       where: {
         userId,
@@ -21,7 +26,7 @@ export class NotificationsService {
         trip: true,
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
       skip: (page - 1) * limit,
       take: limit,
@@ -34,7 +39,7 @@ export class NotificationsService {
     });
 
     if (!existing || existing.userId !== userId) {
-      throw new NotFoundException('Notification not found');
+      throw new NotFoundException("Notification not found");
     }
 
     const updated = await this.prisma.notification.update({
@@ -42,14 +47,17 @@ export class NotificationsService {
       data: { readAt: new Date() },
     });
 
-    await this.audit.log({
-      userId,
-      entityType: AuditEntity.NOTIFICATION,
-      entityId: updated.id,
-      action: AuditAction.NOTIFICATION_READ,
-      before: existing,
-      after: updated,
-    }, context);
+    await this.audit.log(
+      {
+        userId,
+        entityType: AuditEntity.NOTIFICATION,
+        entityId: updated.id,
+        action: AuditAction.NOTIFICATION_READ,
+        before: existing,
+        after: updated,
+      },
+      context,
+    );
 
     return updated;
   }
@@ -60,21 +68,24 @@ export class NotificationsService {
     });
 
     if (!existing || existing.userId !== userId) {
-      throw new NotFoundException('Notification not found');
+      throw new NotFoundException("Notification not found");
     }
 
     const deleted = await this.prisma.notification.delete({
       where: { id },
     });
 
-    await this.audit.log({
-      userId,
-      entityType: AuditEntity.NOTIFICATION,
-      entityId: deleted.id,
-      action: AuditAction.NOTIFICATION_DELETED,
-      before: existing,
-      after: null,
-    }, context);
+    await this.audit.log(
+      {
+        userId,
+        entityType: AuditEntity.NOTIFICATION,
+        entityId: deleted.id,
+        action: AuditAction.NOTIFICATION_DELETED,
+        before: existing,
+        after: null,
+      },
+      context,
+    );
 
     return deleted;
   }

@@ -1,15 +1,21 @@
-import { BadRequestException, ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
-import { SignupDto } from './dto/signup.dto';
-import { LoginDto } from './dto/login.dto';
-import { DbService } from '../common/db/db.service';
-import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
-import jwtAuthConfig from './config/jwt-auth.config';
-import type { ConfigType } from '@nestjs/config';
-import { AuditService } from '../common/audit/audit.service';
-import { AuditAction, AuditEntity } from '../common/audit/audit.constants';
-import type { AuditContext } from '../common/audit/audit.types';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { SignupDto } from "./dto/signup.dto";
+import { LoginDto } from "./dto/login.dto";
+import { DbService } from "../common/db/db.service";
+import { JwtService } from "@nestjs/jwt";
+import * as bcrypt from "bcrypt";
+import jwtAuthConfig from "./config/jwt-auth.config";
+import type { ConfigType } from "@nestjs/config";
+import { AuditService } from "../common/audit/audit.service";
+import { AuditAction, AuditEntity } from "../common/audit/audit.constants";
+import type { AuditContext } from "../common/audit/audit.types";
+import { RefreshTokenDto } from "./dto/refresh-token.dto";
 
 @Injectable()
 export class AuthService {
@@ -28,7 +34,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+      throw new ConflictException("User with this email already exists");
     }
 
     const hash = await bcrypt.hash(dto.password, 10);
@@ -37,27 +43,30 @@ export class AuthService {
       data: {
         ...dto,
         password: hash,
-      }
+      },
     });
 
-    await this.audit.log({
-      userId: newUser.id,
-      entityType: AuditEntity.USER,
-      entityId: newUser.id,
-      action: AuditAction.USER_CREATED,
-      before: null,
-      after: newUser,
-    }, context);
+    await this.audit.log(
+      {
+        userId: newUser.id,
+        entityType: AuditEntity.USER,
+        entityId: newUser.id,
+        action: AuditAction.USER_CREATED,
+        before: null,
+        after: newUser,
+      },
+      context,
+    );
 
     return {
-      message: 'User created successfully',
+      message: "User created successfully",
       user: {
         id: newUser.id,
         email: newUser.email,
         firstName: newUser.firstName,
         lastName: newUser.lastName,
       },
-    }
+    };
   }
 
   private async generateTokens(userId: string, email: string, role: string) {
@@ -81,11 +90,11 @@ export class AuthService {
     });
 
     if (!user || !(await bcrypt.compare(dto.password, user.password))) {
-      throw new ConflictException('Invalid email or password');
+      throw new ConflictException("Invalid email or password");
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException('User account is deactivated');
+      throw new UnauthorizedException("User account is deactivated");
     }
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
@@ -96,17 +105,23 @@ export class AuthService {
       data: { refreshToken: hashedRefreshToken },
     });
 
-    await this.audit.log({
-      userId: user.id,
-      entityType: AuditEntity.USER,
-      entityId: user.id,
-      action: user.role === 'ADMIN' ? AuditAction.ADMIN_LOGIN : AuditAction.USER_LOGIN,
-      before: user,
-      after: updatedUser,
-    }, context);
+    await this.audit.log(
+      {
+        userId: user.id,
+        entityType: AuditEntity.USER,
+        entityId: user.id,
+        action:
+          user.role === "ADMIN"
+            ? AuditAction.ADMIN_LOGIN
+            : AuditAction.USER_LOGIN,
+        before: user,
+        after: updatedUser,
+      },
+      context,
+    );
 
     return {
-      message: 'Login successful',
+      message: "Login successful",
       ...tokens,
       user: {
         id: user.id,
@@ -116,7 +131,7 @@ export class AuthService {
         role: user.role,
         mustChangePassword: user.mustChangePassword,
       },
-    }
+    };
   }
 
   // async adminLogin(dto: LoginDto, context?: AuditContext) {
@@ -165,23 +180,26 @@ export class AuthService {
 
   async refreshTokens(dto: RefreshTokenDto, context?: AuditContext) {
     const { refreshToken } = dto;
-    
+
     if (!refreshToken) {
-      throw new UnauthorizedException('Refresh token missing');
+      throw new UnauthorizedException("Refresh token missing");
     }
 
     let payload: { sub: string };
 
     try {
-      payload = await this.jwtService.verifyAsync<{ sub: string }>(refreshToken, {
-        secret: this.authConfig.refreshSecret,
-      });
+      payload = await this.jwtService.verifyAsync<{ sub: string }>(
+        refreshToken,
+        {
+          secret: this.authConfig.refreshSecret,
+        },
+      );
     } catch {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException("Invalid refresh token");
     }
 
     if (!payload?.sub) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException("Invalid refresh token");
     }
 
     const user = await this.prisma.user.findUnique({
@@ -189,12 +207,15 @@ export class AuthService {
     });
 
     if (!user || !user.refreshToken) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException("Invalid refresh token");
     }
 
-    const refreshTokenMatches = await bcrypt.compare(refreshToken, user.refreshToken);
+    const refreshTokenMatches = await bcrypt.compare(
+      refreshToken,
+      user.refreshToken,
+    );
     if (!refreshTokenMatches) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException("Invalid refresh token");
     }
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
@@ -205,17 +226,20 @@ export class AuthService {
       data: { refreshToken: hashedRefreshToken },
     });
 
-    await this.audit.log({
-      userId: user.id,
-      entityType: AuditEntity.USER,
-      entityId: user.id,
-      action: AuditAction.USER_TOKEN_REFRESHED,
-      before: user,
-      after: updatedUser,
-    }, context);
+    await this.audit.log(
+      {
+        userId: user.id,
+        entityType: AuditEntity.USER,
+        entityId: user.id,
+        action: AuditAction.USER_TOKEN_REFRESHED,
+        before: user,
+        after: updatedUser,
+      },
+      context,
+    );
 
     return {
-      message: 'Token refreshed successfully',
+      message: "Token refreshed successfully",
       ...tokens,
     };
   }
@@ -234,7 +258,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException("User not found");
     }
 
     return { user };
@@ -250,30 +274,34 @@ export class AuthService {
       where: { id: userId },
     });
     if (!user || !(await bcrypt.compare(oldPassword, user.password))) {
-      throw new UnauthorizedException('Old password is incorrect');
+      throw new UnauthorizedException("Old password is incorrect");
     }
     if (await bcrypt.compare(newPassword, user.password)) {
-      throw new BadRequestException('New password must be different from the current password');
+      throw new BadRequestException(
+        "New password must be different from the current password",
+      );
     }
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
-      data: { 
+      data: {
         password: hashedNewPassword,
         mustChangePassword: false,
         refreshToken: null,
       },
     });
 
-    await this.audit.log({
-      userId,
-      entityType: AuditEntity.USER,
-      entityId: userId,
-      action: AuditAction.USER_PASSWORD_CHANGED,
-      before: user,
-      after: updatedUser,
-    }, context);
-    return { message: 'Password changed successfully' };
+    await this.audit.log(
+      {
+        userId,
+        entityType: AuditEntity.USER,
+        entityId: userId,
+        action: AuditAction.USER_PASSWORD_CHANGED,
+        before: user,
+        after: updatedUser,
+      },
+      context,
+    );
+    return { message: "Password changed successfully" };
   }
-
 }

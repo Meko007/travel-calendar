@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { DbService } from '../db/db.service';
-import type { AuditContext, AuditLogInput } from './audit.types';
-import { computeDiff, normalizeJson, sanitizeEntity } from './audit.utils';
+import { Injectable } from "@nestjs/common";
+import { DbService } from "../db/db.service";
+import type { AuditContext, AuditLogInput } from "./audit.types";
+import { computeDiff, normalizeJson, sanitizeEntity } from "./audit.utils";
 
 @Injectable()
 export class AuditService {
@@ -17,8 +17,11 @@ export class AuditService {
       sanitizedAfter === undefined ? null : normalizeJson(sanitizedAfter);
 
     const diffValue =
-      input.diff === undefined ? computeDiff(beforeValue, afterValue) : input.diff;
-    const normalizedDiff = diffValue === undefined ? null : normalizeJson(diffValue);
+      input.diff === undefined
+        ? computeDiff(beforeValue, afterValue)
+        : input.diff;
+    const normalizedDiff =
+      diffValue === undefined ? null : normalizeJson(diffValue);
 
     return this.prisma.auditLog.create({
       data: {

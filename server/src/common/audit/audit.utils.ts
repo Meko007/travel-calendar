@@ -1,15 +1,15 @@
-import type { Request } from 'express';
+import type { Request } from "express";
 
 const SENSITIVE_KEYS = new Set([
-  'password',
-  'refreshToken',
-  'refresh_token',
-  'accessToken',
-  'access_token',
-  'token',
-  'temporaryPassword',
-  'oldPassword',
-  'newPassword',
+  "password",
+  "refreshToken",
+  "refresh_token",
+  "accessToken",
+  "access_token",
+  "token",
+  "temporaryPassword",
+  "oldPassword",
+  "newPassword",
 ]);
 
 export function buildAuditContext(req: Request) {
@@ -21,9 +21,9 @@ export function buildAuditContext(req: Request) {
 }
 
 export function getClientIp(req: Request): string | undefined {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.trim().length > 0) {
-    return forwarded.split(',')[0].trim();
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.trim().length > 0) {
+    return forwarded.split(",")[0].trim();
   }
   if (Array.isArray(forwarded) && forwarded.length > 0) {
     return forwarded[0];
@@ -32,13 +32,12 @@ export function getClientIp(req: Request): string | undefined {
 }
 
 export function getUserAgent(req: Request): string | undefined {
-  const header = req.headers['user-agent'];
+  const header = req.headers["user-agent"];
   if (Array.isArray(header)) {
     return header[0];
   }
   return header;
 }
-
 
 export function sanitizeEntity(value: unknown): unknown {
   if (value === null || value === undefined) {
@@ -50,9 +49,11 @@ export function sanitizeEntity(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map((item) => sanitizeEntity(item));
   }
-  if (typeof value === 'object') {
+  if (typeof value === "object") {
     const result: Record<string, unknown> = {};
-    for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+    for (const [key, nestedValue] of Object.entries(
+      value as Record<string, unknown>,
+    )) {
       if (SENSITIVE_KEYS.has(key)) {
         continue;
       }
@@ -93,11 +94,11 @@ export function computeDiff(before: unknown, after: unknown): unknown {
       return;
     }
     if (prev === undefined) {
-      added[path || '$'] = next;
+      added[path || "$"] = next;
       return;
     }
     if (next === undefined) {
-      removed[path || '$'] = prev;
+      removed[path || "$"] = prev;
       return;
     }
 
@@ -119,17 +120,17 @@ export function computeDiff(before: unknown, after: unknown): unknown {
 
     if (Array.isArray(prev) && Array.isArray(next)) {
       if (!deepEqual(prev, next)) {
-        changes[path || '$'] = { before: prev, after: next };
+        changes[path || "$"] = { before: prev, after: next };
       }
       return;
     }
 
     if (!deepEqual(prev, next)) {
-      changes[path || '$'] = { before: prev, after: next };
+      changes[path || "$"] = { before: prev, after: next };
     }
   };
 
-  walk(before, after, '');
+  walk(before, after, "");
 
   return { changed: changes, added, removed };
 }
@@ -137,7 +138,7 @@ export function computeDiff(before: unknown, after: unknown): unknown {
 function isPlainObject(value: unknown): boolean {
   return (
     value !== null &&
-    typeof value === 'object' &&
+    typeof value === "object" &&
     !Array.isArray(value) &&
     !(value instanceof Date)
   );

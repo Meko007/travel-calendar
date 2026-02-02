@@ -1,10 +1,14 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { NotificationType, TripStatus, Prisma } from '@prisma/client';
-import { DbService } from '../common/db/db.service';
-import { AuditService } from '../common/audit/audit.service';
-import { AuditAction, AuditEntity } from '../common/audit/audit.constants';
-import type { AuditContext } from '../common/audit/audit.types';
-import * as bcrypt from 'bcrypt';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { NotificationType, TripStatus, Prisma } from "@prisma/client";
+import { DbService } from "../common/db/db.service";
+import { AuditService } from "../common/audit/audit.service";
+import { AuditAction, AuditEntity } from "../common/audit/audit.constants";
+import type { AuditContext } from "../common/audit/audit.types";
+import * as bcrypt from "bcrypt";
 
 @Injectable()
 export class AdminService {
@@ -20,7 +24,7 @@ export class AdminService {
 
     const normalized = status.toUpperCase();
     if (!Object.values(TripStatus).includes(normalized as TripStatus)) {
-      throw new BadRequestException('Invalid status filter');
+      throw new BadRequestException("Invalid status filter");
     }
 
     return normalized as TripStatus;
@@ -28,15 +32,31 @@ export class AdminService {
 
   async listUsers(search?: string, page: number = 1, limit: number = 20) {
     const safePage = Number.isFinite(page) && page > 0 ? page : 1;
-    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 20;
+    const safeLimit =
+      Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 20;
     const normalizedSearch = search?.trim();
 
     const where: Prisma.UserWhereInput | undefined = normalizedSearch
       ? {
           OR: [
-            { email: { contains: normalizedSearch, mode: Prisma.QueryMode.insensitive } },
-            { firstName: { contains: normalizedSearch, mode: Prisma.QueryMode.insensitive } },
-            { lastName: { contains: normalizedSearch, mode: Prisma.QueryMode.insensitive } },
+            {
+              email: {
+                contains: normalizedSearch,
+                mode: Prisma.QueryMode.insensitive,
+              },
+            },
+            {
+              firstName: {
+                contains: normalizedSearch,
+                mode: Prisma.QueryMode.insensitive,
+              },
+            },
+            {
+              lastName: {
+                contains: normalizedSearch,
+                mode: Prisma.QueryMode.insensitive,
+              },
+            },
           ],
         }
       : undefined;
@@ -54,7 +74,7 @@ export class AdminService {
           isActive: true,
           createdAt: true,
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         skip: (safePage - 1) * safeLimit,
         take: safeLimit,
       }),
@@ -88,17 +108,34 @@ export class AdminService {
       skip: (page - 1) * limit,
       take: limit,
       orderBy: {
-        tripDateTime: 'asc',
+        tripDateTime: "asc",
       },
     });
   }
 
   async approveTrip(id: string, adminUserId: string, context?: AuditContext) {
-    return this.updateTripStatus(id, TripStatus.APPROVED, undefined, adminUserId, context);
+    return this.updateTripStatus(
+      id,
+      TripStatus.APPROVED,
+      undefined,
+      adminUserId,
+      context,
+    );
   }
 
-  async rejectTrip(id: string, reason: string, adminUserId: string, context?: AuditContext) {
-    return this.updateTripStatus(id, TripStatus.REJECTED, reason, adminUserId, context);
+  async rejectTrip(
+    id: string,
+    reason: string,
+    adminUserId: string,
+    context?: AuditContext,
+  ) {
+    return this.updateTripStatus(
+      id,
+      TripStatus.REJECTED,
+      reason,
+      adminUserId,
+      context,
+    );
   }
 
   private async updateTripStatus(
@@ -110,13 +147,13 @@ export class AdminService {
   ) {
     const trip = await this.prisma.trip.findUnique({ where: { id } });
     if (!trip) {
-      throw new NotFoundException('Trip not found');
+      throw new NotFoundException("Trip not found");
     }
     if (trip.status !== TripStatus.PENDING) {
-      throw new BadRequestException('Trip has already been resolved');
+      throw new BadRequestException("Trip has already been resolved");
     }
     if (status === TripStatus.REJECTED && (!reason || !reason.trim())) {
-      throw new BadRequestException('Rejection reason is required');
+      throw new BadRequestException("Rejection reason is required");
     }
 
     const updated = await this.prisma.trip.update({
@@ -145,14 +182,20 @@ export class AdminService {
       },
     });
 
-    await this.audit.log({
-      userId: adminUserId ?? null,
-      entityType: AuditEntity.TRIP,
-      entityId: updated.id,
-      action: status === TripStatus.APPROVED ? AuditAction.TRIP_APPROVED : AuditAction.TRIP_REJECTED,
-      before: trip,
-      after: updated,
-    }, context);
+    await this.audit.log(
+      {
+        userId: adminUserId ?? null,
+        entityType: AuditEntity.TRIP,
+        entityId: updated.id,
+        action:
+          status === TripStatus.APPROVED
+            ? AuditAction.TRIP_APPROVED
+            : AuditAction.TRIP_REJECTED,
+        before: trip,
+        after: updated,
+      },
+      context,
+    );
 
     return updated;
   }
@@ -165,11 +208,16 @@ export class AdminService {
   ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
-    const matchesCurrent = await bcrypt.compare(temporaryPassword, user.password);
+    const matchesCurrent = await bcrypt.compare(
+      temporaryPassword,
+      user.password,
+    );
     if (matchesCurrent) {
-      throw new BadRequestException('Temporary password must be different from the current password');
+      throw new BadRequestException(
+        "Temporary password must be different from the current password",
+      );
     }
 
     const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
@@ -182,25 +230,32 @@ export class AdminService {
       },
     });
 
-    await this.audit.log({
-      userId: adminUserId ?? null,
-      entityType: AuditEntity.USER,
-      entityId: userId,
-      action: AuditAction.USER_TEMPORARY_PASSWORD_SET,
-      before: user,
-      after: { ...user, password: hashedPassword },
-    }, context);
+    await this.audit.log(
+      {
+        userId: adminUserId ?? null,
+        entityType: AuditEntity.USER,
+        entityId: userId,
+        action: AuditAction.USER_TEMPORARY_PASSWORD_SET,
+        before: user,
+        after: { ...user, password: hashedPassword },
+      },
+      context,
+    );
 
-    return { message: 'Temporary password set successfully' };
+    return { message: "Temporary password set successfully" };
   }
 
-  async deactivateUser(userId: string, adminUserId?: string, context?: AuditContext) {
+  async deactivateUser(
+    userId: string,
+    adminUserId?: string,
+    context?: AuditContext,
+  ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
     if (!user.isActive) {
-      throw new BadRequestException('User is already deactivated');
+      throw new BadRequestException("User is already deactivated");
     }
 
     const updated = await this.prisma.user.update({
@@ -208,25 +263,32 @@ export class AdminService {
       data: { isActive: false, refreshToken: null },
     });
 
-    await this.audit.log({
-      userId: adminUserId ?? null,
-      entityType: AuditEntity.USER,
-      entityId: userId,
-      action: AuditAction.USER_DEACTIVATED,
-      before: user,
-      after: updated,
-    }, context);
+    await this.audit.log(
+      {
+        userId: adminUserId ?? null,
+        entityType: AuditEntity.USER,
+        entityId: userId,
+        action: AuditAction.USER_DEACTIVATED,
+        before: user,
+        after: updated,
+      },
+      context,
+    );
 
     return updated;
   }
 
-  async activateUser(userId: string, adminUserId?: string, context?: AuditContext) {
+  async activateUser(
+    userId: string,
+    adminUserId?: string,
+    context?: AuditContext,
+  ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
     if (user.isActive) {
-      throw new BadRequestException('User is already activated');
+      throw new BadRequestException("User is already activated");
     }
 
     const updated = await this.prisma.user.update({
@@ -234,16 +296,18 @@ export class AdminService {
       data: { isActive: true, refreshToken: null },
     });
 
-    await this.audit.log({
-      userId: adminUserId ?? null,
-      entityType: AuditEntity.USER,
-      entityId: userId,
-      action: AuditAction.USER_ACTIVATED,
-      before: user,
-      after: updated,
-    }, context);
+    await this.audit.log(
+      {
+        userId: adminUserId ?? null,
+        entityType: AuditEntity.USER,
+        entityId: userId,
+        action: AuditAction.USER_ACTIVATED,
+        before: user,
+        after: updated,
+      },
+      context,
+    );
 
     return updated;
   }
-
 }
