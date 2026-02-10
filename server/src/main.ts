@@ -8,6 +8,8 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger("Bootstrap");
 
+  app.useLogger(["log", "error", "warn", "debug", "verbose"]);
+
   app.setGlobalPrefix("api");
 
   const allowedOrigins = (process.env.CORS_ORIGINS ?? "")
