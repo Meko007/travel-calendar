@@ -457,15 +457,11 @@ async function submitBooking() {
     <header class="calendar-header">
       <div class="brand">
         <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
-          <circle cx="32" cy="10" r="9" />
-          <circle cx="50" cy="22" r="9" />
-          <circle cx="50" cy="42" r="9" />
-          <circle cx="32" cy="54" r="9" />
-          <circle cx="14" cy="42" r="9" />
-          <circle cx="14" cy="22" r="9" />
-          <circle cx="32" cy="32" r="6" />
+          <rect x="8" y="13" width="48" height="43" rx="6" />
+          <path d="M8 25h48M20 8v11M44 8v11" />
+          <path d="M18 34h8M30 34h8M42 34h4M18 44h8M30 44h8M42 44h4" />
         </svg>
-        <div class="brand-name">OILDATA</div>
+        <div class="brand-name">TRAVCAL</div>
       </div>
 
       <div class="month-block">
